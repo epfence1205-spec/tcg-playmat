@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --hand-tray-height: 16.67vh;
+
+  /*
+   * OBS Crop Invariant:
+   * The crop line sits at calc(100vh - var(--hand-tray-height)).
+   * Everything above this line (Zone A + Zone B) is visible to OBS.
+   * Everything below (Zone C / Hand Tray) is hidden from OBS capture.
+   * The CSS Grid row structure (1fr | var(--hand-tray-height)) enforces
+   * this boundary — Zone A and Zone B cannot extend below the crop line.
+   */
+}
+
+/*
+ * Accessibility: Focus-visible outlines for keyboard navigation.
+ * Only shows focus ring when navigating via keyboard (not mouse clicks).
+ * Uses a high-contrast ring that works on both light and dark backgrounds.
+ */
+*:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default focus outline for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Hidden scrollbar for hand tray horizontal scroll (>15 cards) */
+.hand-tray-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}

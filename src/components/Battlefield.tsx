@@ -1,0 +1,712 @@
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { useDroppable, useDndContext } from '@dnd-kit/core';
+import type {
+  CreatureArea,
+  SplitRow,
+  RowTarget,
+  RowCard,
+  GamePhase,
+  KeywordAbility,
+} from '../types';
+import { DraggableCard } from './DraggableCard';
+import { EquipmentDock } from './EquipmentDock';
+import type { EquipmentAction } from './EquipmentDock';
+import { createRowCard } from '../gameActions';
+import { calculateEffectiveStats, parseKeywords } from '../keywords';
+
+/**
+ * DroppableCardSlot — Wraps a DraggableCard with a droppable target.
+ * This allows equipment/auras to be dropped directly onto creatures.
+ * When the card has attachments, renders using EquipmentDock for proper
+ * cascade-left layout with sideways name labels.
+ */
+function DroppableCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction, style, isCompressed }: {
+  el: RowCard;
+  onTapCard: (cardId: string) => void;
+  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
+  onCardHoverEnd?: (cardId: string) => void;
+  onEquipmentAction?: (action: import('./EquipmentDock').EquipmentAction) => void;
+  style?: React.CSSProperties;
+  isCompressed?: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `card-drop-${el.instanceId}`,
+    data: {
+      cardId: el.instanceId,
+      cardType: el.card.cardType,
+    },
+  });
+
+  // Detect if this card is currently being dragged (to hide the whole slot)
+  const { active } = useDndContext();
+  const isBeingDragged = active?.id === el.instanceId;
+
+  const hasAttachments = el.attachments.length > 0;
+
+  if (hasAttachments) {
+    const attachmentRowCards = el.attachments.map((att) =>
+      createRowCard(att.card, el.rowAssignment, 0)
+    );
+    const effectiveStats = calculateEffectiveStats(el, attachmentRowCards);
+
+    const grantedKeywords: KeywordAbility[] = [];
+    for (const att of el.attachments) {
+      const kws = parseKeywords(att.card.oracleText);
+      for (const kw of kws) {
+        if (!grantedKeywords.includes(kw)) {
+          grantedKeywords.push(kw);
+        }
+      }
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        className={`flex-shrink-0 relative flex items-center justify-center ${isOver ? 'ring-2 ring-yellow-400 rounded-md' : ''}`}
+        style={{
+          marginLeft: el.isTapped ? '0px' : `${el.attachments.length * 2}vh`,
+          width: el.isTapped ? '16vh' : '11.43vh',
+          height: '16vh',
+          overflow: 'visible',
+          opacity: isBeingDragged ? 0.3 : 1,
+          ...style,
+        }}
+      >
+        <EquipmentDock
+          creature={el}
+          attachments={attachmentRowCards}
+          effectiveStats={effectiveStats}
+          onAction={(action) => onEquipmentAction?.(action)}
+          onTapCard={onTapCard}
+          onCardHoverStart={onCardHoverStart}
+          onCardHoverEnd={onCardHoverEnd}
+        />
+        {grantedKeywords.length > 0 && (
+          <div
+            className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none"
+            style={{ zIndex: el.attachments.length + 5, maxWidth: '10vh' }}
+          >
+            {grantedKeywords.map((kw) => (
+              <span
+                key={kw}
+                className="bg-blue-600 text-white font-bold rounded shadow-lg uppercase tracking-wide"
+                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
+              >
+                {kw.replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        )}
+        {el.counters.length > 0 && (
+          <div
+            className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none"
+            style={{ zIndex: el.attachments.length + 5, maxWidth: '10vh' }}
+          >
+            {el.counters.map((counter, idx) => (
+              <span
+                key={`${counter.type}-${idx}`}
+                className="bg-black/80 text-white font-bold rounded shadow"
+                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
+              >
+                {counter.type === '+1/+1' || counter.type === '-1/-1'
+                  ? `${counter.type} ×${counter.value}`
+                  : `${counter.type}: ${counter.value}`}
+              </span>
+            ))}
+          </div>
+        )}
+        {/* Vertical name + modified P/T banner for equipped creatures */}
+        {isCompressed && (
+          <div
+            className="absolute top-0 left-0 h-full flex flex-col items-center justify-center pointer-events-none"
+            style={{ width: '2.2vh', zIndex: el.attachments.length + 5 }}
+          >
+            <span
+              className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
+              style={{
+                fontSize: '1.2vh',
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                transform: 'rotate(180deg)',
+                flexShrink: 0,
+              }}
+            >
+              {effectiveStats.modifiedPower}/{effectiveStats.modifiedToughness}
+            </span>
+            <span
+              className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
+              style={{
+                fontSize: '1vh',
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                transform: 'rotate(180deg)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                flexShrink: 1,
+                minHeight: 0,
+              }}
+            >
+              {el.showingBackFace && el.card.backFaceName ? el.card.backFaceName : el.card.name}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`transition-all duration-300 ease-in-out flex-shrink-0 relative ${isOver ? 'ring-2 ring-yellow-400 rounded-md' : ''}`}
+      style={{ width: el.isTapped ? '16vh' : '11.43vh', height: '16vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', opacity: isBeingDragged ? 0.3 : 1, ...style }}
+    >
+      <div className="relative" style={{ transform: el.isTapped ? 'rotate(90deg)' : undefined, transition: 'transform 200ms ease', width: '11.43vh', height: '16vh' }}>
+        <DraggableCard
+          card={el.card}
+          sourceZone="battlefield"
+          isTapped={false}
+          isFaceDown={el.isFaceDown}
+          showingBackFace={el.showingBackFace}
+          onClick={onTapCard}
+          onHoverStart={onCardHoverStart as ((cardId: string, zone: import('../types').Zone) => void) | undefined}
+          onHoverEnd={onCardHoverEnd}
+        />
+        {el.counters.length > 0 && (
+          <div className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none" style={{ maxWidth: '10vh' }}>
+            {el.counters.map((counter, idx) => (
+              <span
+                key={`${counter.type}-${idx}`}
+                className="bg-black/80 text-white font-bold rounded shadow"
+                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
+              >
+                {counter.type === '+1/+1' || counter.type === '-1/-1'
+                  ? `${counter.type} ×${counter.value}`
+                  : `${counter.type}: ${counter.value}`}
+              </span>
+            ))}
+          </div>
+        )}
+        {el.isPhased && (
+          <div className="absolute inset-0 bg-gray-900/60 rounded-md pointer-events-none flex items-center justify-center">
+            <span className="text-gray-300 text-[10px] font-bold">PHASED</span>
+          </div>
+        )}
+        {/* Vertical name + P/T banner — inside rotating div so it rotates with the card */}
+        {isCompressed && (
+          <div
+            className="absolute top-0 left-0 h-full flex flex-col items-center justify-center pointer-events-none"
+            style={{ width: '2.2vh', zIndex: 20 }}
+          >
+            {el.card.cardType === 'creature' && (el.showingBackFace ? el.card.backFacePower : el.card.basePower) != null && (
+              <span
+                className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
+                style={{
+                  fontSize: '1.2vh',
+                  writingMode: 'vertical-rl',
+                  textOrientation: 'mixed',
+                  transform: 'rotate(180deg)',
+                  flexShrink: 0,
+                }}
+              >
+                {el.showingBackFace ? `${el.card.backFacePower}/${el.card.backFaceToughness}` : `${el.card.basePower}/${el.card.baseToughness}`}
+              </span>
+            )}
+            <span
+              className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
+              style={{
+                fontSize: '1vh',
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                transform: 'rotate(180deg)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                flexShrink: 1,
+                minHeight: 0,
+              }}
+            >
+              {el.showingBackFace && el.card.backFaceName ? el.card.backFaceName : el.card.name}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Interfaces ──────────────────────────────────────────────────────────────
+
+export interface BattlefieldProps {
+  /** Creature area with 1-3 dynamic rows (3/5 of battlefield height) */
+  creatureArea: CreatureArea;
+  /** Row 4: basic/mana-only lands (left, L→R) + artifacts (right, R→L) */
+  row4: SplitRow;
+  /** Row 5: utility lands (left, L→R) + enchantments (right, R→L) */
+  row5: SplitRow;
+  /** Number of cards in the player's hand (for HUD) */
+  handCount: number;
+  /** Current game phase */
+  gamePhase: GamePhase;
+  /** Called when a card is dropped onto a row target */
+  onDropCard: (cardId: string, targetRow: RowTarget, insertIndex: number) => void;
+  /** Called when a card is clicked (tap/untap toggle) */
+  onTapCard: (cardId: string) => void;
+  /** Called when equipment is attached to a creature */
+  onAttachEquipment: (equipmentId: string, creatureId: string) => void;
+  /** Called when a card is reordered within a row */
+  onMoveWithinRow: (cardId: string, targetRow: RowTarget, insertIndex: number) => void;
+  /** Called when mouse enters a card */
+  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
+  /** Called when mouse leaves a card */
+  onCardHoverEnd?: (cardId: string) => void;
+  /** Called when an equipment action is triggered from the fanned-out view */
+  onEquipmentAction?: (action: EquipmentAction) => void;
+  /** Optional children rendered as overlays (e.g., toolbar buttons) */
+  children?: React.ReactNode;
+}
+
+// ─── Battlefield Component ───────────────────────────────────────────────────
+
+/**
+ * Battlefield (Zone A) — Continuous-flow layout with dynamic row system.
+ *
+ * Layout:
+ * - Creature Area (3/5 height, 60%): 1-3 dynamic RowTrack components
+ * - Row 4 (1/5 height, 20%): SplitRow — lands left L→R, artifacts right R→L
+ * - Row 5 (1/5 height, 20%): SplitRow — utility lands left L→R, enchantments right R→L
+ *
+ * Conditional PW/Battle column on far-right of creature area.
+ * Hand Count HUD at bottom-left above crop line.
+ * Renders blank during MULLIGAN phase.
+ */
+export function Battlefield({
+  creatureArea,
+  row4,
+  row5,
+  handCount,
+  gamePhase,
+  onDropCard,
+  onTapCard,
+  onAttachEquipment,
+  onMoveWithinRow,
+  onCardHoverStart,
+  onCardHoverEnd,
+  onEquipmentAction,
+  children,
+}: BattlefieldProps) {
+  // Suppress unused variable warnings for handlers used by DnD context
+  void onDropCard;
+  void onAttachEquipment;
+  void onMoveWithinRow;
+
+  // Check if any planeswalkers or battles exist in creature rows
+  const hasPWOrBattles = creatureArea.rows.some((row) =>
+    row.elements.some(
+      (el) =>
+        el.card.cardType === 'planeswalker' || el.card.cardType === 'battle'
+    )
+  );
+
+  // Collect PW/Battle cards for the column
+  const pwBattleCards = creatureArea.rows.flatMap((row) =>
+    row.elements.filter(
+      (el) =>
+        el.card.cardType === 'planeswalker' || el.card.cardType === 'battle'
+    )
+  );
+
+  return (
+    <div
+      className="relative w-full bg-green-900/80 overflow-hidden flex flex-col min-h-0"
+      style={{ height: '80vh' }}
+      data-obs-zone="above"
+      role="region"
+      aria-label="Battlefield"
+    >
+      {/* During MULLIGAN phase, render blank battlefield */}
+      {gamePhase === 'MULLIGAN' ? (
+        <div className="flex-1" aria-label="Battlefield blank during mulligan" />
+      ) : (
+        <>
+          {/* Creature Area — 2/4 of battlefield (same height as row4 + row5 combined) */}
+          <div className="flex flex-[2] min-h-0">
+            {/* Creature rows container */}
+            <div className="flex-1 flex flex-col">
+              {creatureArea.rows.map((row) => (
+                <RowTrack
+                  key={row.id}
+                  rowId={row.id as RowTarget}
+                  elements={row.elements.filter(
+                    (el) =>
+                      el.card.cardType !== 'planeswalker' &&
+                      el.card.cardType !== 'battle'
+                  )}
+                  onTapCard={onTapCard}
+                  onCardHoverStart={onCardHoverStart}
+                  onCardHoverEnd={onCardHoverEnd}
+                  onEquipmentAction={onEquipmentAction}
+                />
+              ))}
+            </div>
+
+            {/* Conditional PW/Battle Column — far-right of creature area */}
+            {hasPWOrBattles && (
+              <PWBattleColumn cards={pwBattleCards} onTapCard={onTapCard} onCardHoverStart={onCardHoverStart} onCardHoverEnd={onCardHoverEnd} onEquipmentAction={onEquipmentAction} />
+            )}
+          </div>
+
+          {/* Row 4 — 1/5 (20%) of battlefield height */}
+          <SplitRowTrack
+            leftRowId="row4-lands"
+            rightRowId="row4-artifacts"
+            left={row4.left}
+            right={row4.right}
+            leftLabel="Lands"
+            rightLabel="Artifacts"
+            onTapCard={onTapCard}
+            onCardHoverStart={onCardHoverStart}
+            onCardHoverEnd={onCardHoverEnd}
+            onEquipmentAction={onEquipmentAction}
+          />
+
+          {/* Row 5 — 1/5 (20%) of battlefield height */}
+          <SplitRowTrack
+            leftRowId="row5-lands"
+            rightRowId="row5-enchantments"
+            left={row5.left}
+            right={row5.right}
+            leftLabel="Utility Lands"
+            rightLabel="Enchantments"
+            onTapCard={onTapCard}
+            onCardHoverStart={onCardHoverStart}
+            onCardHoverEnd={onCardHoverEnd}
+            onEquipmentAction={onEquipmentAction}
+          />
+        </>
+      )}
+
+      {/* Children overlay (toolbar, etc.) */}
+      {children}
+
+      {/* Hand Count HUD — bottom-left of Zone A, above crop line */}
+      <div
+        className="absolute bottom-2 left-2 bg-black/70 text-white text-sm font-mono px-2 py-1 rounded pointer-events-none select-none z-50"
+        aria-label={`Hand: ${handCount} cards`}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        Hand: {handCount}
+      </div>
+    </div>
+  );
+}
+
+// ─── RowTrack Component ──────────────────────────────────────────────────────
+
+interface RowTrackProps {
+  rowId: RowTarget;
+  elements: RowCard[];
+  onTapCard: (cardId: string) => void;
+  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
+  onCardHoverEnd?: (cardId: string) => void;
+  onEquipmentAction?: (action: EquipmentAction) => void;
+}
+
+/**
+ * RowTrack — A single horizontal row track rendering cards with dynamic spacing.
+ * Cards compress (overlap) as the row fills up so everything always fits visible.
+ * Supports drag-to-reorder within the row via @dnd-kit/sortable.
+ */
+function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction }: RowTrackProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [negativeMargin, setNegativeMargin] = useState(0);
+  const { setNodeRef, isOver } = useDroppable({
+    id: `row-${rowId}`,
+    data: { rowId },
+  });
+
+  // Calculate dynamic spacing whenever elements change
+  // Use a serialized key to ensure recalculation on any relevant change
+  const elementsKey = elements.map(el => `${el.instanceId}:${el.isTapped}:${el.attachments.length}`).join(',');
+  useEffect(() => {
+    if (!containerRef.current || elements.length <= 1) {
+      setNegativeMargin(0);
+      return;
+    }
+    const containerWidth = containerRef.current.clientWidth - 16; // minus px-2 padding
+    const vh = window.innerHeight / 100;
+    const cardWidth = 11.43 * vh;
+    const tappedWidth = 16 * vh;
+    const gap = 4; // gap-1
+
+    // Total width needed if no overlap
+    const totalNeeded = elements.reduce((sum, el) => {
+      const w = el.isTapped ? tappedWidth : cardWidth;
+      // Equipment adds margin
+      const equipMargin = el.attachments.length > 0 && !el.isTapped ? el.attachments.length * 2 * vh : 0;
+      return sum + w + equipMargin;
+    }, 0) + (elements.length - 1) * gap;
+
+    if (totalNeeded <= containerWidth) {
+      setNegativeMargin(0);
+    } else {
+      // Calculate how much each card needs to overlap
+      const overflow = totalNeeded - containerWidth;
+      const margin = overflow / (elements.length - 1);
+      setNegativeMargin(margin);
+    }
+  }, [elementsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Combine refs
+  const combinedRef = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  }, [setNodeRef]);
+
+  return (
+    <div
+      ref={combinedRef}
+      className={`
+        flex-1 flex flex-row items-center px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
+        ${isOver ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+      `}
+      data-testid={`row-track-${rowId}`}
+      data-row-id={rowId}
+      aria-label={`${rowId} row`}
+    >
+      {elements.map((el, idx) => (
+        <DroppableCardSlot
+          key={el.instanceId}
+          el={el}
+          onTapCard={onTapCard}
+          onCardHoverStart={onCardHoverStart}
+          onCardHoverEnd={onCardHoverEnd}
+          onEquipmentAction={onEquipmentAction}
+          style={{
+            ...(idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : {}),
+            position: 'relative',
+            zIndex: el.isTapped ? 10 : 1,
+          }}
+          isCompressed={negativeMargin > 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── SplitRowTrack Component ─────────────────────────────────────────────────
+
+interface SplitRowTrackProps {
+  leftRowId: RowTarget;
+  rightRowId: RowTarget;
+  left: RowCard[];
+  right: RowCard[];
+  leftLabel: string;
+  rightLabel: string;
+  onTapCard: (cardId: string) => void;
+  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
+  onCardHoverEnd?: (cardId: string) => void;
+  onEquipmentAction?: (action: EquipmentAction) => void;
+}
+
+/**
+ * SplitRowTrack — A row divided into left and right sections with dynamic spacing.
+ * Cards compress to fit available width — no clipping.
+ */
+function SplitRowTrack({
+  leftRowId,
+  rightRowId,
+  left,
+  right,
+  leftLabel,
+  rightLabel,
+  onTapCard,
+  onCardHoverStart,
+  onCardHoverEnd,
+  onEquipmentAction,
+}: SplitRowTrackProps) {
+  const leftContainerRef = useRef<HTMLDivElement>(null);
+  const rightContainerRef = useRef<HTMLDivElement>(null);
+  const [leftMargin, setLeftMargin] = useState(0);
+  const [rightMargin, setRightMargin] = useState(0);
+
+  const { setNodeRef: setLeftDropRef, isOver: isOverLeft } = useDroppable({
+    id: `row-${leftRowId}`,
+    data: { rowId: leftRowId },
+  });
+
+  const { setNodeRef: setRightDropRef, isOver: isOverRight } = useDroppable({
+    id: `row-${rightRowId}`,
+    data: { rowId: rightRowId },
+  });
+
+  const setLeftRef = useCallback((node: HTMLDivElement | null) => {
+    setLeftDropRef(node);
+    (leftContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  }, [setLeftDropRef]);
+
+  const setRightRef = useCallback((node: HTMLDivElement | null) => {
+    setRightDropRef(node);
+    (rightContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  }, [setRightDropRef]);
+
+  // Sort left side: basics first (grouped by name), then non-basics in play order
+  const sortedLeft = [...left].sort((a, b) => {
+    const aIsBasic = a.card.typeLine.toLowerCase().includes('basic');
+    const bIsBasic = b.card.typeLine.toLowerCase().includes('basic');
+    if (aIsBasic && !bIsBasic) return -1;
+    if (!aIsBasic && bIsBasic) return 1;
+    if (aIsBasic && bIsBasic) return a.card.name.localeCompare(b.card.name);
+    return 0; // non-basics preserve play order
+  });
+  const sortedRight = [...right]; // artifacts/enchantments preserve play order
+
+  // Dynamic spacing for left side
+  useEffect(() => {
+    if (!leftContainerRef.current || left.length <= 1) { setLeftMargin(0); return; }
+    const containerWidth = leftContainerRef.current.clientWidth - 16;
+    const vh = window.innerHeight / 100;
+    const cardWidth = 11.43 * vh;
+    const totalNeeded = left.length * cardWidth + (left.length - 1) * 4;
+    if (totalNeeded <= containerWidth) { setLeftMargin(0); }
+    else { setLeftMargin((totalNeeded - containerWidth) / (left.length - 1)); }
+  }, [left]);
+
+  // Dynamic spacing for right side
+  useEffect(() => {
+    if (!rightContainerRef.current || right.length <= 1) { setRightMargin(0); return; }
+    const containerWidth = rightContainerRef.current.clientWidth - 16;
+    const vh = window.innerHeight / 100;
+    const cardWidth = 11.43 * vh;
+    const totalNeeded = right.length * cardWidth + (right.length - 1) * 4;
+    if (totalNeeded <= containerWidth) { setRightMargin(0); }
+    else { setRightMargin((totalNeeded - containerWidth) / (right.length - 1)); }
+  }, [right]);
+
+  return (
+    <div
+      className="flex flex-row flex-1 min-h-0"
+      data-testid={`split-row-${leftRowId}-${rightRowId}`}
+    >
+      <div
+        ref={setLeftRef}
+        className={`
+          flex-1 flex flex-row items-center px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
+          ${isOverLeft ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+        `}
+        data-testid={`row-track-${leftRowId}`}
+        data-row-id={leftRowId}
+        aria-label={`${leftLabel} row`}
+      >
+        {left.length === 0 && (
+          <span className="text-[10px] text-green-400/30 font-mono select-none pointer-events-none">
+            {leftLabel}
+          </span>
+        )}
+          {sortedLeft.map((el, idx) => {
+            const prev = idx > 0 ? sortedLeft[idx - 1] : null;
+            const sameAsPrev = prev && prev.card.name === el.card.name;
+            // Same-name cards get aggressive overlap regardless of dynamic spacing
+            const vh = window.innerHeight / 100;
+            const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
+            const dynamicOverlap = idx > 0 && leftMargin > 0 ? leftMargin : 0;
+            const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+            return (
+              <DroppableCardSlot
+                key={el.instanceId}
+                el={el}
+                onTapCard={onTapCard}
+                onCardHoverStart={onCardHoverStart}
+                onCardHoverEnd={onCardHoverEnd}
+                onEquipmentAction={onEquipmentAction}
+                style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+              />
+            );
+          })}
+      </div>
+
+      <div
+        ref={setRightRef}
+        className={`
+          flex-1 flex flex-row-reverse items-center px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
+          ${isOverRight ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+        `}
+        data-testid={`row-track-${rightRowId}`}
+        data-row-id={rightRowId}
+        aria-label={`${rightLabel} row`}
+      >
+        {right.length === 0 && (
+          <span className="text-[10px] text-green-400/30 font-mono select-none pointer-events-none">
+            {rightLabel}
+          </span>
+        )}
+          {sortedRight.map((el, idx) => {
+            const prev = idx > 0 ? sortedRight[idx - 1] : null;
+            const sameAsPrev = prev && prev.card.name === el.card.name;
+            const vh = window.innerHeight / 100;
+            const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
+            const dynamicOverlap = idx > 0 && rightMargin > 0 ? rightMargin : 0;
+            const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+            return (
+              <DroppableCardSlot
+                key={el.instanceId}
+                el={el}
+                onTapCard={onTapCard}
+                onCardHoverStart={onCardHoverStart}
+                onCardHoverEnd={onCardHoverEnd}
+                onEquipmentAction={onEquipmentAction}
+                style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
+              />
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
+// ─── PWBattleColumn Component ────────────────────────────────────────────────
+
+interface PWBattleColumnProps {
+  cards: RowCard[];
+  onTapCard: (cardId: string) => void;
+  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
+  onCardHoverEnd?: (cardId: string) => void;
+  onEquipmentAction?: (action: EquipmentAction) => void;
+}
+
+/**
+ * PWBattleColumn — Vertical column on the far-right of the creature area.
+ * Only rendered when at least one planeswalker or battle is on the battlefield.
+ * Stacks cards vertically, justified with creature rows.
+ */
+function PWBattleColumn({ cards, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction }: PWBattleColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'row-pw-battle-column',
+    data: { rowId: 'pw-battle-column' as RowTarget },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        w-[100px] flex flex-col items-center gap-1 py-2 overflow-y-auto
+        border-l border-green-700/30
+        transition-all duration-300 ease-in-out
+        ${isOver ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+      `}
+      data-testid="pw-battle-column"
+      data-row-id="pw-battle-column"
+      aria-label="Planeswalker and Battle column"
+    >
+      {cards.map((el) => (
+        <DroppableCardSlot
+          key={el.instanceId}
+          el={el}
+          onTapCard={onTapCard}
+          onCardHoverStart={onCardHoverStart}
+          onCardHoverEnd={onCardHoverEnd}
+          onEquipmentAction={onEquipmentAction}
+        />
+      ))}
+    </div>
+  );
+}
