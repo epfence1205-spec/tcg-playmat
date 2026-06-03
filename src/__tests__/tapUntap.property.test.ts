@@ -18,8 +18,8 @@ import type { GameState, RowCard, CardData, Attachment, RowTarget } from '../typ
 
 const ROW_TARGETS: RowTarget[] = [
   'creature-1', 'creature-2', 'creature-3',
-  'row4-lands', 'row4-artifacts',
-  'row5-lands', 'row5-enchantments',
+  'row3-lands', 'row3-artifacts',
+  'row4-lands', 'row4-enchantments',
 ];
 
 function makeCard(id: string): CardData {
@@ -94,25 +94,25 @@ const rowCardArb: fc.Arbitrary<{ id: string; rowTarget: RowTarget; isTapped: boo
 /** Generates a game state with cards distributed across battlefield zones */
 const gameStateWithBattlefieldCardsArb: fc.Arbitrary<GameState> = fc.record({
   creatureCards: fc.array(rowCardArb, { minLength: 0, maxLength: 5 }),
+  row3LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
+  row3RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
   row4LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
   row4RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-  row5LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-  row5RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-}).map(({ creatureCards, row4LeftCards, row4RightCards, row5LeftCards, row5RightCards }) => {
+}).map(({ creatureCards, row3LeftCards, row3RightCards, row4LeftCards, row4RightCards }) => {
   const creatureElements = creatureCards.map((c, i) =>
     makeRowCard(c.id, 'creature-1', i, c.isTapped, c.attachments)
   );
-  const r4Left = row4LeftCards.map((c, i) =>
+  const r4Left = row3LeftCards.map((c, i) =>
+    makeRowCard(c.id, 'row3-lands', i, c.isTapped, c.attachments)
+  );
+  const r4Right = row3RightCards.map((c, i) =>
+    makeRowCard(c.id, 'row3-artifacts', i, c.isTapped, c.attachments)
+  );
+  const r5Left = row4LeftCards.map((c, i) =>
     makeRowCard(c.id, 'row4-lands', i, c.isTapped, c.attachments)
   );
-  const r4Right = row4RightCards.map((c, i) =>
-    makeRowCard(c.id, 'row4-artifacts', i, c.isTapped, c.attachments)
-  );
-  const r5Left = row5LeftCards.map((c, i) =>
-    makeRowCard(c.id, 'row5-lands', i, c.isTapped, c.attachments)
-  );
-  const r5Right = row5RightCards.map((c, i) =>
-    makeRowCard(c.id, 'row5-enchantments', i, c.isTapped, c.attachments)
+  const r5Right = row4RightCards.map((c, i) =>
+    makeRowCard(c.id, 'row4-enchantments', i, c.isTapped, c.attachments)
   );
 
   return {
@@ -121,8 +121,8 @@ const gameStateWithBattlefieldCardsArb: fc.Arbitrary<GameState> = fc.record({
       rows: [{ id: 'creature-1', elements: creatureElements }],
       totalElementCount: creatureElements.length,
     },
-    row4: { left: r4Left, right: r4Right },
-    row5: { left: r5Left, right: r5Right },
+    row3: { left: r4Left, right: r4Right },
+    row4: { left: r5Left, right: r5Right },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -137,25 +137,25 @@ const gameStateWithBattlefieldCardsArb: fc.Arbitrary<GameState> = fc.record({
 /** Generates a game state that has at least one card on the battlefield */
 const gameStateWithAtLeastOneCardArb: fc.Arbitrary<GameState> = fc.record({
   creatureCards: fc.array(rowCardArb, { minLength: 1, maxLength: 5 }),
+  row3LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
+  row3RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
   row4LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
   row4RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-  row5LeftCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-  row5RightCards: fc.array(rowCardArb, { minLength: 0, maxLength: 3 }),
-}).map(({ creatureCards, row4LeftCards, row4RightCards, row5LeftCards, row5RightCards }) => {
+}).map(({ creatureCards, row3LeftCards, row3RightCards, row4LeftCards, row4RightCards }) => {
   const creatureElements = creatureCards.map((c, i) =>
     makeRowCard(c.id, 'creature-1', i, c.isTapped, c.attachments)
   );
-  const r4Left = row4LeftCards.map((c, i) =>
+  const r4Left = row3LeftCards.map((c, i) =>
+    makeRowCard(c.id, 'row3-lands', i, c.isTapped, c.attachments)
+  );
+  const r4Right = row3RightCards.map((c, i) =>
+    makeRowCard(c.id, 'row3-artifacts', i, c.isTapped, c.attachments)
+  );
+  const r5Left = row4LeftCards.map((c, i) =>
     makeRowCard(c.id, 'row4-lands', i, c.isTapped, c.attachments)
   );
-  const r4Right = row4RightCards.map((c, i) =>
-    makeRowCard(c.id, 'row4-artifacts', i, c.isTapped, c.attachments)
-  );
-  const r5Left = row5LeftCards.map((c, i) =>
-    makeRowCard(c.id, 'row5-lands', i, c.isTapped, c.attachments)
-  );
-  const r5Right = row5RightCards.map((c, i) =>
-    makeRowCard(c.id, 'row5-enchantments', i, c.isTapped, c.attachments)
+  const r5Right = row4RightCards.map((c, i) =>
+    makeRowCard(c.id, 'row4-enchantments', i, c.isTapped, c.attachments)
   );
 
   return {
@@ -164,8 +164,8 @@ const gameStateWithAtLeastOneCardArb: fc.Arbitrary<GameState> = fc.record({
       rows: [{ id: 'creature-1', elements: creatureElements }],
       totalElementCount: creatureElements.length,
     },
-    row4: { left: r4Left, right: r4Right },
-    row5: { left: r5Left, right: r5Right },
+    row3: { left: r4Left, right: r4Right },
+    row4: { left: r5Left, right: r5Right },
     hand: [],
     commandZone: [],
     graveyard: [],

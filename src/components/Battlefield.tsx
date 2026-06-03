@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableCardWrapper } from './SortableCardWrapper';
 import type {
   CreatureArea,
   SplitRow,
@@ -10,6 +12,8 @@ import type {
 } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { EquipmentDock } from './EquipmentDock';
+import { CreatureOuterDiv } from './CreatureOuterDiv';
+import { computeCompression } from '../creatureLayout';
 import type { EquipmentAction } from './EquipmentDock';
 import { createRowCard } from '../gameActions';
 import { calculateEffectiveStats, parseKeywords } from '../keywords';
@@ -238,10 +242,10 @@ function DroppableCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, on
 export interface BattlefieldProps {
   /** Creature area with 1-3 dynamic rows (3/5 of battlefield height) */
   creatureArea: CreatureArea;
-  /** Row 4: basic/mana-only lands (left, L→R) + artifacts (right, R→L) */
+  /** Row 3: basic/mana-only lands (left, L→R) + artifacts (right, R→L) */
+  row3: SplitRow;
+  /** Row 4: utility lands (left, L→R) + enchantments (right, R→L) */
   row4: SplitRow;
-  /** Row 5: utility lands (left, L→R) + enchantments (right, R→L) */
-  row5: SplitRow;
   /** Number of cards in the player's hand (for HUD) */
   handCount: number;
   /** Current game phase */
@@ -260,6 +264,8 @@ export interface BattlefieldProps {
   onCardHoverEnd?: (cardId: string) => void;
   /** Called when an equipment action is triggered from the fanned-out view */
   onEquipmentAction?: (action: EquipmentAction) => void;
+  /** Called when the creature area container resizes (width in vh) */
+  onCreatureAreaResize?: (widthVh: number) => void;
   /** Optional children rendered as overlays (e.g., toolbar buttons) */
   children?: React.ReactNode;
 }
@@ -271,8 +277,8 @@ export interface BattlefieldProps {
  *
  * Layout:
  * - Creature Area (3/5 height, 60%): 1-3 dynamic RowTrack components
- * - Row 4 (1/5 height, 20%): SplitRow — lands left L→R, artifacts right R→L
- * - Row 5 (1/5 height, 20%): SplitRow — utility lands left L→R, enchantments right R→L
+ * - Row 3 (1/5 height, 20%): SplitRow — lands left L→R, artifacts right R→L
+ * - Row 4 (1/5 height, 20%): SplitRow — utility lands left L→R, enchantments right R→L
  *
  * Conditional PW/Battle column on far-right of creature area.
  * Hand Count HUD at bottom-left above crop line.
@@ -280,8 +286,8 @@ export interface BattlefieldProps {
  */
 export function Battlefield({
   creatureArea,
+  row3,
   row4,
-  row5,
   handCount,
   gamePhase,
   onDropCard,
@@ -291,12 +297,27 @@ export function Battlefield({
   onCardHoverStart,
   onCardHoverEnd,
   onEquipmentAction,
+  onCreatureAreaResize,
   children,
 }: BattlefieldProps) {
   // Suppress unused variable warnings for handlers used by DnD context
   void onDropCard;
   void onAttachEquipment;
   void onMoveWithinRow;
+
+  // ResizeObserver for creature area container — reports width in px
+  const creatureAreaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!creatureAreaRef.current || !onCreatureAreaResize) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        onCreatureAreaResize(entry.contentRect.width);
+      }
+    });
+    observer.observe(creatureAreaRef.current);
+    return () => observer.disconnect();
+  }, [onCreatureAreaResize, gamePhase]);
 
   // Check if any planeswalkers or battles exist in creature rows
   const hasPWOrBattles = creatureArea.rows.some((row) =>
@@ -327,8 +348,8 @@ export function Battlefield({
         <div className="flex-1" aria-label="Battlefield blank during mulligan" />
       ) : (
         <>
-          {/* Creature Area — 2/4 of battlefield (same height as row4 + row5 combined) */}
-          <div className="flex flex-[2] min-h-0">
+          {/* Creature Area — 2/4 of battlefield (same height as row3 + row4 combined) */}
+          <div ref={creatureAreaRef} className="flex flex-[2] min-h-0">
             {/* Creature rows container */}
             <div className="flex-1 flex flex-col">
               {creatureArea.rows.map((row) => (
@@ -354,12 +375,12 @@ export function Battlefield({
             )}
           </div>
 
-          {/* Row 4 — 1/5 (20%) of battlefield height */}
+          {/* Row 3 — 1/5 (20%) of battlefield height */}
           <SplitRowTrack
-            leftRowId="row4-lands"
-            rightRowId="row4-artifacts"
-            left={row4.left}
-            right={row4.right}
+            leftRowId="row3-lands"
+            rightRowId="row3-artifacts"
+            left={row3.left}
+            right={row3.right}
             leftLabel="Lands"
             rightLabel="Artifacts"
             onTapCard={onTapCard}
@@ -368,12 +389,12 @@ export function Battlefield({
             onEquipmentAction={onEquipmentAction}
           />
 
-          {/* Row 5 — 1/5 (20%) of battlefield height */}
+          {/* Row 4 — 1/5 (20%) of battlefield height */}
           <SplitRowTrack
-            leftRowId="row5-lands"
-            rightRowId="row5-enchantments"
-            left={row5.left}
-            right={row5.right}
+            leftRowId="row4-lands"
+            rightRowId="row4-enchantments"
+            left={row4.left}
+            right={row4.right}
             leftLabel="Utility Lands"
             rightLabel="Enchantments"
             onTapCard={onTapCard}
@@ -424,37 +445,30 @@ function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd
     data: { rowId },
   });
 
-  // Calculate dynamic spacing whenever elements change
-  // Use a serialized key to ensure recalculation on any relevant change
+  // Track container width via ResizeObserver for responsive compression
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setContainerWidth(w);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Calculate dynamic spacing whenever elements or container width change
   const elementsKey = elements.map(el => `${el.instanceId}:${el.isTapped}:${el.attachments.length}`).join(',');
   useEffect(() => {
-    if (!containerRef.current || elements.length <= 1) {
+    if (elements.length <= 1 || containerWidth === 0) {
       setNegativeMargin(0);
       return;
     }
-    const containerWidth = containerRef.current.clientWidth - 16; // minus px-2 padding
-    const vh = window.innerHeight / 100;
-    const cardWidth = 11.43 * vh;
-    const tappedWidth = 16 * vh;
-    const gap = 4; // gap-1
-
-    // Total width needed if no overlap
-    const totalNeeded = elements.reduce((sum, el) => {
-      const w = el.isTapped ? tappedWidth : cardWidth;
-      // Equipment adds margin
-      const equipMargin = el.attachments.length > 0 && !el.isTapped ? el.attachments.length * 2 * vh : 0;
-      return sum + w + equipMargin;
-    }, 0) + (elements.length - 1) * gap;
-
-    if (totalNeeded <= containerWidth) {
-      setNegativeMargin(0);
-    } else {
-      // Calculate how much each card needs to overlap
-      const overflow = totalNeeded - containerWidth;
-      const margin = overflow / (elements.length - 1);
-      setNegativeMargin(margin);
-    }
-  }, [elementsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    const availableWidth = containerWidth - 16; // minus px-2 padding
+    const vhToPx = window.innerHeight / 100;
+    const margin = computeCompression(elements, availableWidth, vhToPx, 4);
+    setNegativeMargin(margin);
+  }, [elementsKey, containerWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Combine refs
   const combinedRef = useCallback((node: HTMLDivElement | null) => {
@@ -466,29 +480,36 @@ function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd
     <div
       ref={combinedRef}
       className={`
-        flex-1 flex flex-row items-center px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
+        flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
         ${isOver ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
       `}
       data-testid={`row-track-${rowId}`}
       data-row-id={rowId}
       aria-label={`${rowId} row`}
     >
-      {elements.map((el, idx) => (
-        <DroppableCardSlot
-          key={el.instanceId}
-          el={el}
-          onTapCard={onTapCard}
-          onCardHoverStart={onCardHoverStart}
-          onCardHoverEnd={onCardHoverEnd}
-          onEquipmentAction={onEquipmentAction}
-          style={{
-            ...(idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : {}),
-            position: 'relative',
-            zIndex: el.isTapped ? 10 : 1,
-          }}
-          isCompressed={negativeMargin > 0}
-        />
-      ))}
+      <SortableContext items={elements.map(el => el.instanceId)} strategy={horizontalListSortingStrategy}>
+        {elements.map((el, idx) => (
+          <SortableCardWrapper
+            key={el.instanceId}
+            id={el.instanceId}
+            cardName={el.card.name}
+            cardType={el.card.cardType}
+            rowId={rowId}
+            isTapped={el.isTapped}
+            attachmentCount={el.attachments.length}
+            style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
+          >
+            <CreatureOuterDiv
+              creature={el}
+              onTapCard={onTapCard}
+              onCardHoverStart={onCardHoverStart}
+              onCardHoverEnd={onCardHoverEnd}
+              onEquipmentAction={onEquipmentAction}
+              isCompressed={negativeMargin > 0}
+            />
+          </SortableCardWrapper>
+        ))}
+      </SortableContext>
     </div>
   );
 }
@@ -560,27 +581,49 @@ function SplitRowTrack({
   });
   const sortedRight = [...right]; // artifacts/enchantments preserve play order
 
-  // Dynamic spacing for left side
+  // Dynamic spacing for left side — recalculates on card changes and container resize
+  const [leftContainerWidth, setLeftContainerWidth] = useState(0);
+  const [rightContainerWidth, setRightContainerWidth] = useState(0);
+
   useEffect(() => {
-    if (!leftContainerRef.current || left.length <= 1) { setLeftMargin(0); return; }
-    const containerWidth = leftContainerRef.current.clientWidth - 16;
+    if (!leftContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setLeftContainerWidth(w);
+    });
+    observer.observe(leftContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!rightContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setRightContainerWidth(w);
+    });
+    observer.observe(rightContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (left.length <= 1 || leftContainerWidth === 0) { setLeftMargin(0); return; }
+    const containerWidth = leftContainerWidth - 16;
     const vh = window.innerHeight / 100;
     const cardWidth = 11.43 * vh;
     const totalNeeded = left.length * cardWidth + (left.length - 1) * 4;
     if (totalNeeded <= containerWidth) { setLeftMargin(0); }
     else { setLeftMargin((totalNeeded - containerWidth) / (left.length - 1)); }
-  }, [left]);
+  }, [left, leftContainerWidth]);
 
-  // Dynamic spacing for right side
   useEffect(() => {
-    if (!rightContainerRef.current || right.length <= 1) { setRightMargin(0); return; }
-    const containerWidth = rightContainerRef.current.clientWidth - 16;
+    if (right.length <= 1 || rightContainerWidth === 0) { setRightMargin(0); return; }
+    const containerWidth = rightContainerWidth - 16;
     const vh = window.innerHeight / 100;
     const cardWidth = 11.43 * vh;
     const totalNeeded = right.length * cardWidth + (right.length - 1) * 4;
     if (totalNeeded <= containerWidth) { setRightMargin(0); }
     else { setRightMargin((totalNeeded - containerWidth) / (right.length - 1)); }
-  }, [right]);
+  }, [right, rightContainerWidth]);
 
   return (
     <div
@@ -590,7 +633,7 @@ function SplitRowTrack({
       <div
         ref={setLeftRef}
         className={`
-          flex-1 flex flex-row items-center px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
+          flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
           ${isOverLeft ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
         `}
         data-testid={`row-track-${leftRowId}`}
@@ -602,6 +645,7 @@ function SplitRowTrack({
             {leftLabel}
           </span>
         )}
+        <SortableContext items={sortedLeft.map(el => el.instanceId)} strategy={horizontalListSortingStrategy}>
           {sortedLeft.map((el, idx) => {
             const prev = idx > 0 ? sortedLeft[idx - 1] : null;
             const sameAsPrev = prev && prev.card.name === el.card.name;
@@ -611,23 +655,33 @@ function SplitRowTrack({
             const dynamicOverlap = idx > 0 && leftMargin > 0 ? leftMargin : 0;
             const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
             return (
-              <DroppableCardSlot
+              <SortableCardWrapper
                 key={el.instanceId}
-                el={el}
-                onTapCard={onTapCard}
-                onCardHoverStart={onCardHoverStart}
-                onCardHoverEnd={onCardHoverEnd}
-                onEquipmentAction={onEquipmentAction}
+                id={el.instanceId}
+                cardName={el.card.name}
+                cardType={el.card.cardType}
+                rowId={leftRowId}
+                isTapped={el.isTapped}
+                attachmentCount={el.attachments.length}
                 style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
-              />
+              >
+                <DroppableCardSlot
+                  el={el}
+                  onTapCard={onTapCard}
+                  onCardHoverStart={onCardHoverStart}
+                  onCardHoverEnd={onCardHoverEnd}
+                  onEquipmentAction={onEquipmentAction}
+                />
+              </SortableCardWrapper>
             );
           })}
+        </SortableContext>
       </div>
 
       <div
         ref={setRightRef}
         className={`
-          flex-1 flex flex-row-reverse items-center px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
+          flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
           ${isOverRight ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
         `}
         data-testid={`row-track-${rightRowId}`}
@@ -639,6 +693,7 @@ function SplitRowTrack({
             {rightLabel}
           </span>
         )}
+        <SortableContext items={sortedRight.map(el => el.instanceId)} strategy={horizontalListSortingStrategy}>
           {sortedRight.map((el, idx) => {
             const prev = idx > 0 ? sortedRight[idx - 1] : null;
             const sameAsPrev = prev && prev.card.name === el.card.name;
@@ -647,17 +702,27 @@ function SplitRowTrack({
             const dynamicOverlap = idx > 0 && rightMargin > 0 ? rightMargin : 0;
             const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
             return (
-              <DroppableCardSlot
+              <SortableCardWrapper
                 key={el.instanceId}
-                el={el}
-                onTapCard={onTapCard}
-                onCardHoverStart={onCardHoverStart}
-                onCardHoverEnd={onCardHoverEnd}
-                onEquipmentAction={onEquipmentAction}
+                id={el.instanceId}
+                cardName={el.card.name}
+                cardType={el.card.cardType}
+                rowId={rightRowId}
+                isTapped={el.isTapped}
+                attachmentCount={el.attachments.length}
                 style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
-              />
+              >
+                <DroppableCardSlot
+                  el={el}
+                  onTapCard={onTapCard}
+                  onCardHoverStart={onCardHoverStart}
+                  onCardHoverEnd={onCardHoverEnd}
+                  onEquipmentAction={onEquipmentAction}
+                />
+              </SortableCardWrapper>
             );
           })}
+        </SortableContext>
       </div>
     </div>
   );

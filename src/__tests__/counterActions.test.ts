@@ -45,8 +45,8 @@ function makeEmptyState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -65,19 +65,19 @@ function stateWithCardInCreatureArea(cardId: string, counters: { type: CounterTy
   return state;
 }
 
-function stateWithCardInRow4Left(cardId: string, counters: { type: CounterType; value: number }[] = []): GameState {
+function stateWithCardInrow3Left(cardId: string, counters: { type: CounterType; value: number }[] = []): GameState {
   const state = makeEmptyState();
   const rc = makeRowCard(cardId, counters);
-  rc.rowAssignment = 'row4-lands';
-  state.row4.left = [rc];
+  rc.rowAssignment = 'row3-lands';
+  state.row3.left = [rc];
   return state;
 }
 
-function stateWithCardInRow5Right(cardId: string, counters: { type: CounterType; value: number }[] = []): GameState {
+function stateWithCardInrow4Right(cardId: string, counters: { type: CounterType; value: number }[] = []): GameState {
   const state = makeEmptyState();
   const rc = makeRowCard(cardId, counters);
-  rc.rowAssignment = 'row5-enchantments';
-  state.row5.right = [rc];
+  rc.rowAssignment = 'row4-enchantments';
+  state.row4.right = [rc];
   return state;
 }
 
@@ -109,18 +109,18 @@ describe('addCounter', () => {
     expect(card.counters[1]).toEqual({ type: 'loyalty', value: 1 });
   });
 
-  it('works for cards in row4 left', () => {
-    const state = stateWithCardInRow4Left('land-1');
+  it('works for cards in row3 left', () => {
+    const state = stateWithCardInrow3Left('land-1');
     const result = addCounter(state, 'land-1', 'charge');
-    const card = result.row4.left[0];
+    const card = result.row3.left[0];
     expect(card.counters).toHaveLength(1);
     expect(card.counters[0]).toEqual({ type: 'charge', value: 1 });
   });
 
-  it('works for cards in row5 right', () => {
-    const state = stateWithCardInRow5Right('ench-1');
+  it('works for cards in row4 right', () => {
+    const state = stateWithCardInrow4Right('ench-1');
     const result = addCounter(state, 'ench-1', 'lore');
-    const card = result.row5.right[0];
+    const card = result.row4.right[0];
     expect(card.counters).toHaveLength(1);
     expect(card.counters[0]).toEqual({ type: 'lore', value: 1 });
   });

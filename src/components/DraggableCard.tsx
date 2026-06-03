@@ -16,6 +16,8 @@ export interface DraggableCardProps {
   isFaceDown?: boolean;
   /** For DFCs: whether to show the back face */
   showingBackFace?: boolean;
+  /** When true, skip useDraggable — card becomes a pure visual (drag handled by parent sortable) */
+  disableDrag?: boolean;
   /** Optional click handler (e.g., for tap toggle) */
   onClick?: (cardId: string) => void;
   /** Optional right-click handler (e.g., for flip) */
@@ -54,6 +56,7 @@ export function DraggableCard({
   isTapped = false,
   isFaceDown = false,
   showingBackFace = false,
+  disableDrag = false,
   onClick,
   onContextMenu,
   onHoverStart,
@@ -62,6 +65,7 @@ export function DraggableCard({
 }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
+    disabled: disableDrag,
     data: {
       cardId: card.id,
       cardName: card.name,
@@ -99,7 +103,7 @@ export function DraggableCard({
       {...listeners}
       {...attributes}
       className={`
-        select-none touch-none cursor-grab overflow-hidden relative
+        select-none touch-none ${disableDrag ? 'cursor-pointer' : 'cursor-grab'} overflow-hidden relative
         ${isDragging ? 'z-50 opacity-0 cursor-grabbing' : 'z-10'}
         ${className}
       `}

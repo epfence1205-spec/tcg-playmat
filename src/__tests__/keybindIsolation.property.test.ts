@@ -17,8 +17,8 @@ function makeGameState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],

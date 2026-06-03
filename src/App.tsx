@@ -26,7 +26,9 @@ import type { GameAction } from './hooks/useKeybinds'
 import { moveCard, tapCard, softReset, isGameInProgress, drawCard as drawCardAction, shuffleLibrary, untapAll, flipCard, transformDFC, findCardOnBattlefield, removeCardFromZone, addToBattlefield, createTokens } from './gameActions'
 import { addCounter, removeCounter } from './counterActions'
 import { attachEquipment, detachEquipment } from './equipmentActions'
+import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
 import { initializeMulligan } from './mulliganEngine'
+import { CreatureOuterDiv } from './components/CreatureOuterDiv'
 import type { GameState, CardData, Zone, RowTarget, CardType } from './types'
 
 /**
@@ -42,7 +44,7 @@ const dropAnimationConfig: DropAnimation = {
 function AppContent() {
   const { handleQuotaExceeded } = useErrorHandling()
 
-  const { state: gameState, setState: setGameState, undo } = useGameState(handleQuotaExceeded)
+  const { state: gameState, setState: setGameState, undo, setCreatureAreaContainerWidthPx } = useGameState(handleQuotaExceeded)
 
   // Drag state for DragOverlay
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -115,14 +117,14 @@ function AppContent() {
               return { ...prev, creatureArea: { ...prev.creatureArea, rows: newRows } }
             }
           }
+          if (prev.row3.left.some(rc => rc.instanceId === action.cardId))
+            return { ...prev, row3: { ...prev.row3, left: togglePhased(prev.row3.left) } }
+          if (prev.row3.right.some(rc => rc.instanceId === action.cardId))
+            return { ...prev, row3: { ...prev.row3, right: togglePhased(prev.row3.right) } }
           if (prev.row4.left.some(rc => rc.instanceId === action.cardId))
             return { ...prev, row4: { ...prev.row4, left: togglePhased(prev.row4.left) } }
           if (prev.row4.right.some(rc => rc.instanceId === action.cardId))
             return { ...prev, row4: { ...prev.row4, right: togglePhased(prev.row4.right) } }
-          if (prev.row5.left.some(rc => rc.instanceId === action.cardId))
-            return { ...prev, row5: { ...prev.row5, left: togglePhased(prev.row5.left) } }
-          if (prev.row5.right.some(rc => rc.instanceId === action.cardId))
-            return { ...prev, row5: { ...prev.row5, right: togglePhased(prev.row5.right) } }
           return prev
         })
         break
@@ -285,8 +287,8 @@ function AppContent() {
         // Check if this card is docked as an attachment on another card
         const allCards = [
           ...gameState.creatureArea.rows.flatMap(r => r.elements),
+          ...gameState.row3.left, ...gameState.row3.right,
           ...gameState.row4.left, ...gameState.row4.right,
-          ...gameState.row5.left, ...gameState.row5.right,
         ]
         isDocked = allCards.some(rc => rc.attachments.some(a => a.instanceId === cardId))
       }
@@ -419,14 +421,14 @@ function AppContent() {
               return { ...prev, creatureArea: { ...prev.creatureArea, rows: newRows } }
             }
           }
+          if (prev.row3.left.some(rc => rc.instanceId === cardId))
+            return { ...prev, row3: { ...prev.row3, left: togglePhased(prev.row3.left) } }
+          if (prev.row3.right.some(rc => rc.instanceId === cardId))
+            return { ...prev, row3: { ...prev.row3, right: togglePhased(prev.row3.right) } }
           if (prev.row4.left.some(rc => rc.instanceId === cardId))
             return { ...prev, row4: { ...prev.row4, left: togglePhased(prev.row4.left) } }
           if (prev.row4.right.some(rc => rc.instanceId === cardId))
             return { ...prev, row4: { ...prev.row4, right: togglePhased(prev.row4.right) } }
-          if (prev.row5.left.some(rc => rc.instanceId === cardId))
-            return { ...prev, row5: { ...prev.row5, left: togglePhased(prev.row5.left) } }
-          if (prev.row5.right.some(rc => rc.instanceId === cardId))
-            return { ...prev, row5: { ...prev.row5, right: togglePhased(prev.row5.right) } }
           return prev
         })
         break
@@ -528,14 +530,14 @@ function AppContent() {
                 return { ...newState, creatureArea: { ...newState.creatureArea, rows: newRows } }
               }
             }
+            if (newState.row3.left.some(rc => rc.instanceId === cardId))
+              return { ...newState, row3: { ...newState.row3, left: toggleBack(newState.row3.left) } }
+            if (newState.row3.right.some(rc => rc.instanceId === cardId))
+              return { ...newState, row3: { ...newState.row3, right: toggleBack(newState.row3.right) } }
             if (newState.row4.left.some(rc => rc.instanceId === cardId))
               return { ...newState, row4: { ...newState.row4, left: toggleBack(newState.row4.left) } }
             if (newState.row4.right.some(rc => rc.instanceId === cardId))
               return { ...newState, row4: { ...newState.row4, right: toggleBack(newState.row4.right) } }
-            if (newState.row5.left.some(rc => rc.instanceId === cardId))
-              return { ...newState, row5: { ...newState.row5, left: toggleBack(newState.row5.left) } }
-            if (newState.row5.right.some(rc => rc.instanceId === cardId))
-              return { ...newState, row5: { ...newState.row5, right: toggleBack(newState.row5.right) } }
             return newState
           } catch { return prev }
         })
@@ -575,7 +577,56 @@ function AppContent() {
     const overData = over.data.current
     const cardType = active.data.current?.cardType as string
 
-    // ─── Equipment/Aura docking (any source zone → creature) ─────────────
+    // ── Priority 1: Attached equipment being dragged ──────────────────────────
+    if (isAttachedEquipment(cardId, gameState)) {
+      const parentId = findParentCreature(cardId, gameState)
+      if (!parentId) return
+
+      // Drop on different creature → re-equip
+      if (overId.startsWith('card-drop-') && overData?.cardType === 'creature' && overData?.cardId !== parentId) {
+        setGameState((prev: GameState) => {
+          try {
+            const detached = detachEquipment(prev, cardId, parentId)
+            return attachEquipment(detached, cardId, overData.cardId as string)
+          } catch { return prev }
+        })
+        return
+      }
+      // Drop on battlefield row → detach to standalone
+      if (overId.startsWith('row-') || overData?.rowId) {
+        setGameState((prev: GameState) => {
+          try {
+            return detachEquipment(prev, cardId, parentId)
+          } catch { return prev }
+        })
+        return
+      }
+      // Drop on hand zone → detach + move to hand
+      if (overId === 'hand-zone' || overId === 'hand-drop-zone') {
+        setGameState((prev: GameState) => {
+          try {
+            const detached = detachEquipment(prev, cardId, parentId)
+            return moveCard(detached, cardId, 'battlefield', 'hand')
+          } catch { return prev }
+        })
+        return
+      }
+      // Drop on zone (graveyard, exile, commandZone, library) → detach + move
+      if (['commandZone', 'graveyard', 'library', 'exile'].includes(overId)) {
+        const targetZone = overId as Zone
+        setGameState((prev: GameState) => {
+          try {
+            const detached = detachEquipment(prev, cardId, parentId)
+            return moveCard(detached, cardId, 'battlefield', targetZone)
+          } catch { return prev }
+        })
+        return
+      }
+      // No valid target matched → snap back (do nothing)
+      return
+    }
+
+    // ─── Priority 2: Equipment/Aura docking (any source zone → creature) ─────────────
     if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
       const creatureId = overData.cardId as string
       if (cardId !== creatureId) {
@@ -596,8 +647,8 @@ function AppContent() {
                 // Check if it's currently an attachment
                 const allBf = [
                   ...gameState.creatureArea.rows.flatMap(r => r.elements),
+                  ...gameState.row3.left, ...gameState.row3.right,
                   ...gameState.row4.left, ...gameState.row4.right,
-                  ...gameState.row5.left, ...gameState.row5.right,
                 ]
                 for (const rc of allBf) {
                   const att = rc.attachments.find(a => a.instanceId === cardId)
@@ -617,8 +668,8 @@ function AppContent() {
               // Check if the card is currently an attachment on another creature
               const allBf = [
                 ...state.creatureArea.rows.flatMap(r => r.elements),
+                ...state.row3.left, ...state.row3.right,
                 ...state.row4.left, ...state.row4.right,
-                ...state.row5.left, ...state.row5.right,
               ]
               const parentCreature = allBf.find(rc => rc.attachments.some(a => a.instanceId === cardId))
 
@@ -647,16 +698,116 @@ function AppContent() {
       // If the dragged card is currently an attachment, detach it first
       const allBfCards = [
         ...gameState.creatureArea.rows.flatMap(r => r.elements),
+        ...gameState.row3.left, ...gameState.row3.right,
         ...gameState.row4.left, ...gameState.row4.right,
-        ...gameState.row5.left, ...gameState.row5.right,
       ]
       const parentOfDragged = allBfCards.find(rc => rc.attachments.some(a => a.instanceId === cardId))
       if (parentOfDragged) {
-        // Detach the equipment — it goes back to its appropriate row
+        // Dragging an attached equipment — route based on drop target
+        if (overId === 'hand-zone' || overId === 'hand-drop-zone') {
+          // Drop on hand → detach + move to hand
+          setGameState((prev: GameState) => {
+            try {
+              const detached = detachEquipment(prev, cardId, parentOfDragged.instanceId)
+              return moveCard(detached, cardId, 'battlefield', 'hand')
+            } catch { return prev }
+          })
+          return
+        }
+
+        if (['commandZone', 'graveyard', 'library', 'exile'].includes(overId)) {
+          // Drop on a zone → detach + move to that zone
+          const targetZone = overId as Zone
+          setGameState((prev: GameState) => {
+            try {
+              const detached = detachEquipment(prev, cardId, parentOfDragged.instanceId)
+              return moveCard(detached, cardId, 'battlefield', targetZone)
+            } catch { return prev }
+          })
+          return
+        }
+
+        if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
+          // Drop on another creature → re-equip
+          const targetCreatureId = overData.cardId as string
+          if (targetCreatureId !== parentOfDragged.instanceId) {
+            setGameState((prev: GameState) => {
+              try {
+                const detached = detachEquipment(prev, cardId, parentOfDragged.instanceId)
+                return attachEquipment(detached, cardId, targetCreatureId)
+              } catch { return prev }
+            })
+          }
+          return
+        }
+
+        if (overId.startsWith('row-')) {
+          // Drop on a battlefield row → detach + place as standalone in correct row
+          setGameState((prev: GameState) => {
+            try {
+              return detachEquipment(prev, cardId, parentOfDragged.instanceId)
+            } catch { return prev }
+          })
+          return
+        }
+
+        // No valid target matched → snap back (do nothing)
+        return
+      }
+
+      // ── Priority 3: Same-row reorder ──────────────────────────────────────
+      const activeRowId = active.data.current?.rowId as RowTarget | undefined
+      let overRowId = over.data.current?.rowId as RowTarget | undefined
+      // If over target is a card droppable (card-drop-{id}), resolve its row from data or lookup
+      let overCardId = overId
+      if (!overRowId && overId.startsWith('card-drop-')) {
+        overCardId = overId.replace('card-drop-', '')
+        // Find which row this card is in
+        for (const row of gameState.creatureArea.rows) {
+          if (row.elements.some(rc => rc.instanceId === overCardId)) {
+            overRowId = row.id as RowTarget
+            break
+          }
+        }
+        if (!overRowId) {
+          if (gameState.row3.left.some(rc => rc.instanceId === overCardId)) overRowId = 'row3-lands'
+          else if (gameState.row3.right.some(rc => rc.instanceId === overCardId)) overRowId = 'row3-artifacts'
+          else if (gameState.row4.left.some(rc => rc.instanceId === overCardId)) overRowId = 'row4-lands'
+          else if (gameState.row4.right.some(rc => rc.instanceId === overCardId)) overRowId = 'row4-enchantments'
+        }
+      }
+
+      if (sourceZone === 'battlefield' && activeRowId && overRowId && activeRowId === overRowId && cardId !== overCardId) {
+        const rowCards = getRowCards(gameState, activeRowId)
+        const oldIndex = rowCards.findIndex(rc => rc.instanceId === cardId)
+        const newIndex = rowCards.findIndex(rc => rc.instanceId === overCardId)
+        if (oldIndex !== -1 && newIndex !== -1) {
+          setGameState((prev: GameState) => {
+            const currentRowCards = getRowCards(prev, activeRowId)
+            const oIdx = currentRowCards.findIndex(rc => rc.instanceId === cardId)
+            const nIdx = currentRowCards.findIndex(rc => rc.instanceId === overCardId)
+            if (oIdx === -1 || nIdx === -1) return prev
+            return reorderWithinRowAction(prev, activeRowId, oIdx, nIdx)
+          })
+          return
+        }
+      }
+
+      // ── Priority 4: Cross-row move ────────────────────────────────────────
+      if (sourceZone === 'battlefield' && activeRowId && overRowId && activeRowId !== overRowId) {
         setGameState((prev: GameState) => {
-          try {
-            return detachEquipment(prev, cardId, parentOfDragged.instanceId)
-          } catch { return prev }
+          const sourceCards = getRowCards(prev, activeRowId)
+          const cardIndex = sourceCards.findIndex(rc => rc.instanceId === cardId)
+          if (cardIndex === -1) return prev
+          const card = sourceCards[cardIndex]
+          const newSource = sourceCards.filter(rc => rc.instanceId !== cardId)
+          const targetCards = getRowCards(prev, overRowId!)
+          const insertAt = targetCards.findIndex(rc => rc.instanceId === overCardId)
+          const newTarget = [...targetCards]
+          newTarget.splice(insertAt === -1 ? newTarget.length : insertAt, 0, { ...card, rowAssignment: overRowId! })
+          let s = setRowCards(prev, activeRowId, newSource)
+          s = setRowCards(s, overRowId!, newTarget)
+          return s
         })
         return
       }
@@ -672,23 +823,23 @@ function AppContent() {
           let targetRow = rowId
           if (cardType === 'creature' || cardType === 'planeswalker' || cardType === 'battle') {
             // Creatures/PWs/Battles can only go to creature area or pw-battle column
-            if (rowId === 'row4-lands' || rowId === 'row4-artifacts' || rowId === 'row5-lands' || rowId === 'row5-enchantments') {
+            if (rowId === 'row3-lands' || rowId === 'row3-artifacts' || rowId === 'row4-lands' || rowId === 'row4-enchantments') {
               targetRow = cardType === 'creature' ? 'creature-1' : 'pw-battle-column'
             }
           } else if (cardType === 'land') {
-            // Lands can only go to row4-lands or row5-lands
-            if (rowId.startsWith('creature') || rowId === 'row4-artifacts' || rowId === 'row5-enchantments' || rowId === 'pw-battle-column') {
-              targetRow = 'row4-lands'
+            // Lands can only go to row3-lands or row4-lands
+            if (rowId.startsWith('creature') || rowId === 'row3-artifacts' || rowId === 'row4-enchantments' || rowId === 'pw-battle-column') {
+              targetRow = 'row3-lands'
             }
           } else if (cardType === 'artifact') {
-            // Artifacts go to row4-artifacts
-            if (rowId !== 'row4-artifacts' && rowId !== 'row4-lands') {
-              targetRow = 'row4-artifacts'
+            // Artifacts go to row3-artifacts
+            if (rowId !== 'row3-artifacts') {
+              targetRow = 'row3-artifacts'
             }
           } else if (cardType === 'enchantment') {
-            // Enchantments go to row5-enchantments
-            if (rowId !== 'row5-enchantments' && rowId !== 'row5-lands') {
-              targetRow = 'row5-enchantments'
+            // Enchantments go to row4-enchantments
+            if (rowId !== 'row4-enchantments') {
+              targetRow = 'row4-enchantments'
             }
           } else if (cardType === 'instant' || cardType === 'sorcery' || cardType === 'other') {
             // Instants/sorceries/other go to creature area (row 3 / middle of battlefield)
@@ -712,10 +863,10 @@ function AppContent() {
                   }
                   return null
                 }
+                if (row === 'row3-lands') return { cards: state.row3.left, path: 'row3-left' }
+                if (row === 'row3-artifacts') return { cards: state.row3.right, path: 'row3-right' }
                 if (row === 'row4-lands') return { cards: state.row4.left, path: 'row4-left' }
-                if (row === 'row4-artifacts') return { cards: state.row4.right, path: 'row4-right' }
-                if (row === 'row5-lands') return { cards: state.row5.left, path: 'row5-left' }
-                if (row === 'row5-enchantments') return { cards: state.row5.right, path: 'row5-right' }
+                if (row === 'row4-enchantments') return { cards: state.row4.right, path: 'row4-right' }
                 return null
               }
 
@@ -750,10 +901,10 @@ function AppContent() {
                 )
                 return { ...prev, creatureArea: { ...prev.creatureArea, rows: newRows } }
               }
+              if (targetRow === 'row3-lands') return { ...prev, row3: { ...prev.row3, left: reordered } }
+              if (targetRow === 'row3-artifacts') return { ...prev, row3: { ...prev.row3, right: reordered } }
               if (targetRow === 'row4-lands') return { ...prev, row4: { ...prev.row4, left: reordered } }
-              if (targetRow === 'row4-artifacts') return { ...prev, row4: { ...prev.row4, right: reordered } }
-              if (targetRow === 'row5-lands') return { ...prev, row5: { ...prev.row5, left: reordered } }
-              if (targetRow === 'row5-enchantments') return { ...prev, row5: { ...prev.row5, right: reordered } }
+              if (targetRow === 'row4-enchantments') return { ...prev, row4: { ...prev.row4, right: reordered } }
               return prev
             })
           } else {
@@ -805,8 +956,8 @@ function AppContent() {
             // Check if equipment is currently attached somewhere
             const allBf = [
               ...prev.creatureArea.rows.flatMap(r => r.elements),
+              ...prev.row3.left, ...prev.row3.right,
               ...prev.row4.left, ...prev.row4.right,
-              ...prev.row5.left, ...prev.row5.right,
             ]
             const parent = allBf.find(rc => rc.attachments.some(a => a.instanceId === equipModeCardId))
             let state = prev
@@ -890,8 +1041,8 @@ function AppContent() {
       const freshState: GameState = {
         gamePhase: 'PLAYING',
         creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+        row3: { left: [], right: [] },
         row4: { left: [], right: [] },
-        row5: { left: [], right: [] },
         hand: [],
         commandZone: deck.commanders,
         graveyard: [],
@@ -951,8 +1102,8 @@ function AppContent() {
       >
         <Battlefield
           creatureArea={gameState.creatureArea}
+          row3={gameState.row3}
           row4={gameState.row4}
-          row5={gameState.row5}
           handCount={gameState.hand.length}
           gamePhase={gameState.gamePhase}
           onDropCard={handleDropCard}
@@ -961,14 +1112,15 @@ function AppContent() {
           onMoveWithinRow={handleMoveWithinRow}
           onCardHoverStart={onHoverStart}
           onCardHoverEnd={onHoverEnd}
+          onCreatureAreaResize={setCreatureAreaContainerWidthPx}
           onEquipmentAction={(action) => {
             if (action.type === 'MOVE_TO') {
               setGameState((prev: GameState) => {
                 try {
                   const allBf = [
                     ...prev.creatureArea.rows.flatMap(r => r.elements),
+                    ...prev.row3.left, ...prev.row3.right,
                     ...prev.row4.left, ...prev.row4.right,
-                    ...prev.row5.left, ...prev.row5.right,
                   ]
                   const parent = allBf.find(rc => rc.attachments.some(a => a.instanceId === action.equipmentId))
                   if (!parent) return prev
@@ -981,8 +1133,8 @@ function AppContent() {
                 try {
                   const allBf = [
                     ...prev.creatureArea.rows.flatMap(r => r.elements),
+                    ...prev.row3.left, ...prev.row3.right,
                     ...prev.row4.left, ...prev.row4.right,
-                    ...prev.row5.left, ...prev.row5.right,
                   ]
                   const parent = allBf.find(rc => rc.attachments.some(a => a.instanceId === action.equipmentId))
                   if (!parent) return prev
@@ -1018,6 +1170,8 @@ function AppContent() {
           })}
           onBrowseLibrary={() => setShowLibraryBrowser(true)}
           onBrowseGraveyard={() => {}}
+          onCardHoverStart={onHoverStart}
+          onCardHoverEnd={onHoverEnd}
         />
         <HandTray
           cards={gameState.hand}
@@ -1175,6 +1329,11 @@ function App() {
  *  - pointer-events-none prevents the overlay from interfering with drop detection
  *  - will-change:transform promotes to GPU layer for smooth 60fps tracking
  *  - The image renders continuously regardless of which zone the cursor is over
+ *
+ *  Enhanced rendering:
+ *  - Battlefield creature with attachments → renders full CreatureOuterDiv
+ *  - Attached equipment → renders just the equipment card image
+ *  - All other cards → simple card image
  */
 function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: GameState }) {
   // Find the card in any zone
@@ -1187,16 +1346,43 @@ function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: Gam
     )
   }
 
-  // Search battlefield (creatureArea rows + row4 + row5)
+  // Search battlefield (creatureArea rows + row3 + row4)
   const allBattlefieldCards = [
     ...gameState.creatureArea.rows.flatMap(r => r.elements),
+    ...gameState.row3.left,
+    ...gameState.row3.right,
     ...gameState.row4.left,
     ...gameState.row4.right,
-    ...gameState.row5.left,
-    ...gameState.row5.right,
   ]
+
+  // Check if dragged card is attached equipment → render just equipment image
+  if (isAttachedEquipment(cardId, gameState)) {
+    for (const rc of allBattlefieldCards) {
+      const att = rc.attachments.find(a => a.instanceId === cardId)
+      if (att) {
+        return (
+          <div className="pointer-events-none" style={{ willChange: 'transform' }}>
+            <img src={att.card.imageURI} alt={att.card.name} className="w-[11.43vh] h-[16vh] object-cover rounded-md shadow-2xl" draggable={false} />
+          </div>
+        )
+      }
+    }
+  }
+
+  // Check if dragged card is a battlefield creature with attachments → render CreatureOuterDiv
   const bfCard = allBattlefieldCards.find(rc => rc.card.id === cardId)
   if (bfCard) {
+    if (bfCard.attachments.length > 0) {
+      return (
+        <div className="pointer-events-none" style={{ willChange: 'transform' }}>
+          <CreatureOuterDiv
+            creature={bfCard}
+            isCompressed={false}
+            onTapCard={() => {}}
+          />
+        </div>
+      )
+    }
     const src = bfCard.isFaceDown
       ? '/card-back.webp'
       : bfCard.showingBackFace && bfCard.card.backFaceImageURI
@@ -1207,18 +1393,6 @@ function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: Gam
         <img src={src} alt={bfCard.card.name} className="w-[11.43vh] h-[16vh] object-cover rounded-md shadow-2xl" draggable={false} />
       </div>
     )
-  }
-
-  // Search attachments on battlefield cards
-  for (const rc of allBattlefieldCards) {
-    const att = rc.attachments.find(a => a.instanceId === cardId)
-    if (att) {
-      return (
-        <div className="pointer-events-none" style={{ willChange: 'transform' }}>
-          <img src={att.card.imageURI} alt={att.card.name} className="w-[11.43vh] h-[16vh] object-cover rounded-md shadow-2xl" draggable={false} />
-        </div>
-      )
-    }
   }
 
   const cmdCard = gameState.commandZone.find(c => c.id === cardId)

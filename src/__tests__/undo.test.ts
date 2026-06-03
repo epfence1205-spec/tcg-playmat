@@ -1,4 +1,4 @@
-ï»¿import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useGameState } from '../hooks/useGameState';
 import type { GameState, CardData } from '../types';
@@ -86,7 +86,7 @@ describe('Undo System', () => {
     localStorage.setItem('tcg-playmat-state', JSON.stringify({
       gamePhase: 'MULLIGAN',
       creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
-      row4: { left: [], right: [] }, row5: { left: [], right: [] },
+      row3: { left: [], right: [] }, row4: { left: [], right: [] },
       hand: [], commandZone: [], graveyard: [],
       library: [{ id: 'lib1', name: 'Lib', setCode: 'tst', collectorNumber: '1', imageURI: 'https://t.com/1.jpg', imageURILarge: 'https://t.com/1.jpg', backFaceImageURI: null, backFaceCardType: null, typeLine: 'Creature', oracleText: '', isCommander: false, keywords: [], basePower: '1', baseToughness: '1', cardType: 'creature', isToken: false, isTokenCopy: false }],
       exile: [],
@@ -100,7 +100,7 @@ describe('Undo System', () => {
     act(() => {
       result.current.setState((prev: GameState) => ({ ...prev, hand: [makeCard('m1','M')] }));
     });
-    // Undo should fail â€” nothing recorded
+    // Undo should fail — nothing recorded
     let r: boolean | undefined;
     act(() => { r = result.current.undo(); });
     expect(r).toBe(false);
@@ -108,7 +108,7 @@ describe('Undo System', () => {
 
   it('history is capped at 50 entries', () => {
     const { result } = renderHook(() => useGameState());
-    // Setup into PLAYING with empty hand â€” this itself records 1 history entry
+    // Setup into PLAYING with empty hand — this itself records 1 history entry
     act(() => {
       result.current.setState((prev: GameState) => ({ ...prev, gamePhase: 'PLAYING' as const, hand: [] }));
     });

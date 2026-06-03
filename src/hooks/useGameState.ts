@@ -22,6 +22,7 @@ import {
   attachEquipment as attachEquipmentAction,
   detachEquipment as detachEquipmentAction,
 } from '../equipmentActions';
+import { reorderWithinRow as reorderWithinRowAction } from '../sortableHelpers';
 import {
   addCounter as addCounterAction,
   removeCounter as removeCounterAction,
@@ -62,12 +63,47 @@ export function useGameState(onQuotaExceeded?: () => void) {
 
   /**
    * Wraps setState to push the current state onto the undo stack before mutating.
+   * Always recalculates creature rows with the current container width.
    * Skips history during MULLIGAN phase (no undo during setup).
    */
+  // Ref to track current creature area container width in px (updated by Battlefield via ResizeObserver)
+  const containerWidthPxRef = useRef<number>(0);
+  const setCreatureAreaContainerWidthPx = useCallback((widthPx: number) => {
+    const changed = widthPx !== containerWidthPxRef.current;
+    containerWidthPxRef.current = widthPx;
+    // When width changes (e.g. first report from ResizeObserver), recalculate rows
+    if (changed) {
+      setState((prev) => {
+        const recalculated = recalculateCreatureRows(
+          prev.creatureArea,
+          widthPx,
+          window.innerHeight / 100,
+          4
+        );
+        if (recalculated !== prev.creatureArea) {
+          return { ...prev, creatureArea: recalculated };
+        }
+        return prev;
+      });
+    }
+  }, []);
+
   const setGameStateWithHistory = useCallback(
     (updater: GameState | ((prev: GameState) => GameState)) => {
       setState((prev) => {
-        const next = typeof updater === 'function' ? updater(prev) : updater;
+        let next = typeof updater === 'function' ? updater(prev) : updater;
+        // Always recalculate creature rows with real container width
+        if (containerWidthPxRef.current > 0) {
+          const recalculated = recalculateCreatureRows(
+            next.creatureArea,
+            containerWidthPxRef.current,
+            window.innerHeight / 100,
+            4
+          );
+          if (recalculated !== next.creatureArea) {
+            next = { ...next, creatureArea: recalculated };
+          }
+        }
         // Don't record history during mulligan or if state didn't change
         if (prev.gamePhase === 'PLAYING' && next.gamePhase === 'PLAYING' && next !== prev) {
           historyRef.current = [...historyRef.current.slice(-(MAX_HISTORY - 1)), prev];
@@ -107,11 +143,17 @@ export function useGameState(onQuotaExceeded?: () => void) {
    * Wraps a state transformation that mutates the battlefield,
    * ensuring creature rows are recalculated after the mutation.
    */
+
   const updateWithCreatureRecalc = useCallback(
     (updater: (prev: GameState) => GameState) => {
       setGameStateWithHistory((prev) => {
         const next = updater(prev);
-        const recalculated = recalculateCreatureRows(next.creatureArea);
+        const recalculated = recalculateCreatureRows(
+          next.creatureArea,
+          containerWidthPxRef.current,
+          window.innerHeight / 100,
+          4
+        );
         if (recalculated !== next.creatureArea) {
           return { ...next, creatureArea: recalculated };
         }
@@ -124,32 +166,32 @@ export function useGameState(onQuotaExceeded?: () => void) {
   // ─── Core Game Actions ───────────────────────────────────────────────────
 
   const drawCard = useCallback(() => {
-    setState((prev) => drawCardAction(prev));
-  }, []);
+    setGameStateWithHistory((prev) => drawCardAction(prev));
+  }, [setGameStateWithHistory]);
 
   const shuffleLibrary = useCallback(() => {
-    setState((prev) => shuffleLibraryAction(prev));
-  }, []);
+    setGameStateWithHistory((prev) => shuffleLibraryAction(prev));
+  }, [setGameStateWithHistory]);
 
   const softReset = useCallback(() => {
-    setState((prev) => softResetAction(prev));
-  }, []);
+    setGameStateWithHistory((prev) => softResetAction(prev));
+  }, [setGameStateWithHistory]);
 
   const tapCard = useCallback((cardId: string) => {
-    setState((prev) => tapCardAction(prev, cardId));
-  }, []);
+    setGameStateWithHistory((prev) => tapCardAction(prev, cardId));
+  }, [setGameStateWithHistory]);
 
   const flipCard = useCallback((cardId: string, zone: Zone) => {
-    setState((prev) => flipCardAction(prev, cardId, zone));
-  }, []);
+    setGameStateWithHistory((prev) => flipCardAction(prev, cardId, zone));
+  }, [setGameStateWithHistory]);
 
   const transformDFC = useCallback((cardId: string) => {
-    setState((prev) => transformDFCAction(prev, cardId));
-  }, []);
+    setGameStateWithHistory((prev) => transformDFCAction(prev, cardId));
+  }, [setGameStateWithHistory]);
 
   const untapAll = useCallback(() => {
-    setState((prev) => untapAllAction(prev));
-  }, []);
+    setGameStateWithHistory((prev) => untapAllAction(prev));
+  }, [setGameStateWithHistory]);
 
   // ─── Movement Actions (battlefield mutations → recalculate rows) ─────────
 
@@ -199,6 +241,15 @@ export function useGameState(onQuotaExceeded?: () => void) {
       updateWithCreatureRecalc((prev) => detachEquipmentAction(prev, equipmentId, creatureId));
     },
     [updateWithCreatureRecalc]
+  );
+
+  // ─── Sortable Actions ─────────────────────────────────────────────────────
+
+  const reorderInRow = useCallback(
+    (rowId: RowTarget, oldIndex: number, newIndex: number) => {
+      setGameStateWithHistory((prev) => reorderWithinRowAction(prev, rowId, oldIndex, newIndex));
+    },
+    [setGameStateWithHistory]
   );
 
   // ─── Counter Actions ─────────────────────────────────────────────────────
@@ -253,6 +304,9 @@ export function useGameState(onQuotaExceeded?: () => void) {
     attachEquipment,
     detachEquipment,
 
+    // Sortable actions
+    reorderInRow,
+
     // Counter actions
     addCounter,
     removeCounter,
@@ -261,5 +315,8 @@ export function useGameState(onQuotaExceeded?: () => void) {
     // Computed values
     deliriumCount,
     isGameInProgress,
+
+    // Container width setter for width-based row splitting
+    setCreatureAreaContainerWidthPx,
   };
 }

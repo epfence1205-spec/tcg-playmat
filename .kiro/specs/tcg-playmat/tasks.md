@@ -13,7 +13,7 @@ This is a major architectural refactor of the existing TCG Playmat codebase. The
     - Add `KeywordAbility` type and `CardType` discriminator
     - Extend `CardData` with `imageURILarge`, `keywords`, `basePower`, `baseToughness`, `cardType`
     - Add `ExileCard` (already exists, keep), `FanGroup`, `HDZoomPortalProps`
-    - Update `GameState` interface: replace `battlefield: BattlefieldCard[]` with `creatureArea`, `row4`, `row5`, add `gamePhase`, `mulliganState`, `lifeTotal`
+    - Update `GameState` interface: replace `battlefield: BattlefieldCard[]` with `creatureArea`, `row3`, `row4`, add `gamePhase`, `mulliganState`, `lifeTotal`
     - _Requirements: 20.1, 20.2, 20.3, 4.1, 5.1, 6.1, 9.1, 11.1, 17.1_
 
   - [x] 1.2 Write property tests for data model invariants
@@ -33,10 +33,10 @@ This is a major architectural refactor of the existing TCG Playmat codebase. The
 
 - [x] 2. Refactor game state management and core actions
   - [x] 2.1 Rewrite `src/gameActions.ts` for new state shape
-    - Update `drawCard`, `shuffleLibrary`, `softReset`, `tapCard`, `flipCard`, `transformDFC` to work with new `GameState` (creatureArea, row4, row5)
+    - Update `drawCard`, `shuffleLibrary`, `softReset`, `tapCard`, `flipCard`, `transformDFC` to work with new `GameState` (creatureArea, row3, row4)
     - Add `untapAll()` that untaps all battlefield cards including attachments
     - Add `moveCard()` updated for `RowTarget` destinations instead of `GridPosition`
-    - Add `removeCardFromZone()` updated to search creature rows, row4, row5, and attachment slots
+    - Add `removeCardFromZone()` updated to search creature rows, row3, row4, and attachment slots
     - Add `addToBattlefield(card, targetRow)` with auto-assignment logic based on `cardType`
     - Add `isGameInProgress()` updated for new zone structure
     - _Requirements: 26.1, 26.4, 28.1, 28.3, 25.1, 25.2, 25.3, 6.3, 6.4, 6.5, 22.4_
@@ -99,7 +99,7 @@ This is a major architectural refactor of the existing TCG Playmat codebase. The
 
 - [x] 4. Refactor persistence layer
   - [x] 4.1 Update `src/persistence.ts` for new GameState shape
-    - Serialize/deserialize new state structure (creatureArea, row4, row5, mulliganState, counters, attachments)
+    - Serialize/deserialize new state structure (creatureArea, row3, row4, mulliganState, counters, attachments)
     - Handle `Set<string>` → Array conversion for `selectedToPutBack`
     - Add corrupted state recovery (return empty state on parse failure)
     - Maintain 100ms debounced writes
@@ -156,8 +156,8 @@ This is a major architectural refactor of the existing TCG Playmat codebase. The
   - [x] 7.2 Refactor `src/components/Battlefield.tsx` for continuous flow
     - Remove old 4-row CSS Grid layout entirely
     - Implement creature area (3/5 height) with 1-3 dynamic RowTrack components
-    - Implement Row 4 (1/5 height) as SplitRow: lands left L→R, artifacts right R→L
-    - Implement Row 5 (1/5 height) as SplitRow: utility lands left L→R, enchantments right R→L
+    - Implement Row 3 (1/5 height) as SplitRow: lands left L→R, artifacts right R→L
+    - Implement Row 4 (1/5 height) as SplitRow: utility lands left L→R, enchantments right R→L
     - Add conditional PW/Battle column on far-right of creature area
     - Add Hand Count HUD at bottom-left above crop line
     - Render blank during MULLIGAN phase

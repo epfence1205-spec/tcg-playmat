@@ -17,9 +17,9 @@ import {
  * Property 29: Card Type Row Assignment
  * For any card added to the battlefield via addToBattlefield:
  *   - creature → placed in creature area (creature-1, creature-2, or creature-3)
- *   - land → placed in row4-lands
- *   - artifact → placed in row4-artifacts
- *   - enchantment → placed in row5-enchantments
+ *   - land → placed in row3-lands
+ *   - artifact → placed in row3-artifacts
+ *   - enchantment → placed in row4-enchantments
  *   - planeswalker/battle → placed in pw-battle-column (stored in creature area)
  *
  * Property 30: Planeswalker/Battle Column Visibility
@@ -79,8 +79,8 @@ function createEmptyState(): GameState {
       rows: [{ id: 'creature-1', elements: [] }],
       totalElementCount: 0,
     },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -212,7 +212,7 @@ describe('Property 29: Card Type Row Assignment', () => {
     );
   });
 
-  it('land cards are placed in row4-lands', () => {
+  it('land cards are placed in row3-lands', () => {
     fc.assert(
       fc.property(fc.uuid(), (id: string) => {
         const card = makeCardData(id, 'land');
@@ -223,13 +223,13 @@ describe('Property 29: Card Type Row Assignment', () => {
           (rc) => rc.instanceId === card.id
         );
         expect(placed).toBeDefined();
-        expect(placed!.rowAssignment).toBe('row4-lands');
+        expect(placed!.rowAssignment).toBe('row3-lands');
       }),
       { numRuns: 200 }
     );
   });
 
-  it('artifact cards are placed in row4-artifacts', () => {
+  it('artifact cards are placed in row3-artifacts', () => {
     fc.assert(
       fc.property(fc.uuid(), (id: string) => {
         const card = makeCardData(id, 'artifact');
@@ -240,13 +240,13 @@ describe('Property 29: Card Type Row Assignment', () => {
           (rc) => rc.instanceId === card.id
         );
         expect(placed).toBeDefined();
-        expect(placed!.rowAssignment).toBe('row4-artifacts');
+        expect(placed!.rowAssignment).toBe('row3-artifacts');
       }),
       { numRuns: 200 }
     );
   });
 
-  it('enchantment cards are placed in row5-enchantments', () => {
+  it('enchantment cards are placed in row4-enchantments', () => {
     fc.assert(
       fc.property(fc.uuid(), (id: string) => {
         const card = makeCardData(id, 'enchantment');
@@ -257,7 +257,7 @@ describe('Property 29: Card Type Row Assignment', () => {
           (rc) => rc.instanceId === card.id
         );
         expect(placed).toBeDefined();
-        expect(placed!.rowAssignment).toBe('row5-enchantments');
+        expect(placed!.rowAssignment).toBe('row4-enchantments');
       }),
       { numRuns: 200 }
     );
@@ -315,13 +315,13 @@ describe('Property 29: Card Type Row Assignment', () => {
             );
             break;
           case 'land':
-            expect(placed!.rowAssignment).toBe('row4-lands');
+            expect(placed!.rowAssignment).toBe('row3-lands');
             break;
           case 'artifact':
-            expect(placed!.rowAssignment).toBe('row4-artifacts');
+            expect(placed!.rowAssignment).toBe('row3-artifacts');
             break;
           case 'enchantment':
-            expect(placed!.rowAssignment).toBe('row5-enchantments');
+            expect(placed!.rowAssignment).toBe('row4-enchantments');
             break;
           case 'planeswalker':
           case 'battle':

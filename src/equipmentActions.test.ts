@@ -44,8 +44,8 @@ function makeEmptyState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -60,7 +60,7 @@ function makeEmptyState(): GameState {
 // ─── attachEquipment Tests ───────────────────────────────────────────────────
 
 describe('attachEquipment', () => {
-  it('removes equipment from row4-artifacts and adds to creature attachments', () => {
+  it('removes equipment from row3-artifacts and adds to creature attachments', () => {
     const creature = makeCard({ id: 'creature-1' });
     const equipment = makeEquipment({ id: 'equip-1' });
 
@@ -68,13 +68,13 @@ describe('attachEquipment', () => {
     // Place creature in creature area
     state.creatureArea.rows[0].elements = [createRowCard(creature, 'creature-1', 0)];
     state.creatureArea.totalElementCount = 1;
-    // Place equipment in row4 right (artifacts)
-    state.row4.right = [createRowCard(equipment, 'row4-artifacts', 0)];
+    // Place equipment in row3 right (artifacts)
+    state.row3.right = [createRowCard(equipment, 'row3-artifacts', 0)];
 
     const result = attachEquipment(state, 'equip-1', 'creature-1');
 
-    // Equipment removed from row4 right
-    expect(result.row4.right).toHaveLength(0);
+    // Equipment removed from row3 right
+    expect(result.row3.right).toHaveLength(0);
     // Equipment added to creature's attachments
     const creatureCard = result.creatureArea.rows[0].elements[0];
     expect(creatureCard.attachments).toHaveLength(1);
@@ -118,7 +118,7 @@ describe('attachEquipment', () => {
   it('throws when creature is not found on battlefield', () => {
     const equipment = makeEquipment({ id: 'equip-1' });
     const state = makeEmptyState();
-    state.row4.right = [createRowCard(equipment, 'row4-artifacts', 0)];
+    state.row3.right = [createRowCard(equipment, 'row3-artifacts', 0)];
 
     expect(() => attachEquipment(state, 'equip-1', 'nonexistent')).toThrow(
       'Creature nonexistent not found on battlefield'
@@ -133,9 +133,9 @@ describe('attachEquipment', () => {
     const state = makeEmptyState();
     state.creatureArea.rows[0].elements = [createRowCard(creature, 'creature-1', 0)];
     state.creatureArea.totalElementCount = 1;
-    state.row4.right = [
-      createRowCard(equip1, 'row4-artifacts', 0),
-      createRowCard(equip2, 'row4-artifacts', 1),
+    state.row3.right = [
+      createRowCard(equip1, 'row3-artifacts', 0),
+      createRowCard(equip2, 'row3-artifacts', 1),
     ];
 
     const afterFirst = attachEquipment(state, 'equip-1', 'creature-1');
@@ -151,7 +151,7 @@ describe('attachEquipment', () => {
 // ─── detachEquipment Tests ───────────────────────────────────────────────────
 
 describe('detachEquipment', () => {
-  it('removes equipment from creature and places it back in row4-artifacts', () => {
+  it('removes equipment from creature and places it back in row3-artifacts', () => {
     const creature = makeCard({ id: 'creature-1' });
     const equipment = makeEquipment({ id: 'equip-1' });
 
@@ -168,13 +168,13 @@ describe('detachEquipment', () => {
     // Equipment removed from creature's attachments
     const creatureCard = result.creatureArea.rows[0].elements[0];
     expect(creatureCard.attachments).toHaveLength(0);
-    // Equipment placed back in row4 right (artifacts)
-    expect(result.row4.right).toHaveLength(1);
-    expect(result.row4.right[0].instanceId).toBe('equip-1');
-    expect(result.row4.right[0].card.name).toBe('Sword of Testing');
+    // Equipment placed back in row3 right (artifacts)
+    expect(result.row3.right).toHaveLength(1);
+    expect(result.row3.right[0].instanceId).toBe('equip-1');
+    expect(result.row3.right[0].card.name).toBe('Sword of Testing');
   });
 
-  it('places enchantment auras back in row5-enchantments', () => {
+  it('places enchantment auras back in row4-enchantments', () => {
     const creature = makeCard({ id: 'creature-1' });
     const aura = makeCard({
       id: 'aura-1',
@@ -199,9 +199,9 @@ describe('detachEquipment', () => {
     // Aura removed from creature's attachments
     const creatureCard = result.creatureArea.rows[0].elements[0];
     expect(creatureCard.attachments).toHaveLength(0);
-    // Aura placed in row5 right (enchantments)
-    expect(result.row5.right).toHaveLength(1);
-    expect(result.row5.right[0].instanceId).toBe('aura-1');
+    // Aura placed in row4 right (enchantments)
+    expect(result.row4.right).toHaveLength(1);
+    expect(result.row4.right[0].instanceId).toBe('aura-1');
   });
 
   it('throws when creature is not found', () => {
@@ -240,7 +240,7 @@ describe('detachEquipment', () => {
     const creatureCard = result.creatureArea.rows[0].elements[0];
     expect(creatureCard.attachments).toHaveLength(1);
     expect(creatureCard.attachments[0].instanceId).toBe('equip-2');
-    expect(result.row4.right).toHaveLength(1);
-    expect(result.row4.right[0].instanceId).toBe('equip-1');
+    expect(result.row3.right).toHaveLength(1);
+    expect(result.row3.right[0].instanceId).toBe('equip-1');
   });
 });

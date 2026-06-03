@@ -77,8 +77,8 @@ function gameStateWithHandAndLibrary(
   ).map(([hand, library]) => ({
     gamePhase: 'PLAYING' as const,
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand,
     commandZone: [],
     graveyard: [],
@@ -161,8 +161,8 @@ describe('Property 31: Hand Count HUD Accuracy', () => {
         ).map(([hand, graveyard]) => ({
           gamePhase: 'PLAYING' as const,
           creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+          row3: { left: [], right: [] },
           row4: { left: [], right: [] },
-          row5: { left: [], right: [] },
           hand,
           commandZone: [],
           graveyard,

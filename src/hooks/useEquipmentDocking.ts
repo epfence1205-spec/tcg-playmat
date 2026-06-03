@@ -69,14 +69,14 @@ export function findAttachedCreatureId(
     }
   }
 
-  // Search row4
-  for (const rc of [...state.row4.left, ...state.row4.right]) {
+  // Search row3
+  for (const rc of [...state.row3.left, ...state.row3.right]) {
     const attached = rc.attachments.find((a) => a.instanceId === equipmentId);
     if (attached) return rc.instanceId;
   }
 
-  // Search row5
-  for (const rc of [...state.row5.left, ...state.row5.right]) {
+  // Search row4
+  for (const rc of [...state.row4.left, ...state.row4.right]) {
     const attached = rc.attachments.find((a) => a.instanceId === equipmentId);
     if (attached) return rc.instanceId;
   }

@@ -6,7 +6,7 @@
 - ✅ Deck import from Archidekt (with set codes for correct art)
 - ✅ Deck import from Moxfield (via proxy)
 - ✅ Mulligan flow (draw 7, mulligan, confirm keep, put-back selection)
-- ✅ Cards auto-sort to correct rows (creatures → creature area, lands → row4/row5, artifacts → row4, enchantments → row5)
+- ✅ Cards auto-sort to correct rows (creatures → creature area, lands → row3/row4, artifacts → row3, enchantments → row4)
 - ✅ Utility vs mana-only land classification (ETB conditions treated as mana-related)
 - ✅ Instants/sorceries → creature row 2 (isolated, disappears when empty)
 - ✅ Creature rows: max 2, split at >14, merge at ≤14, preserve user arrangement when >14
@@ -66,3 +66,5 @@
 ## Tabled: Future Features (needs specs)
 - **LLM-powered equipment parser** — Replace regex stat/keyword extraction with semantic understanding
 - **Battlefield row sortable** — Drag to reorder within rows (see above)
+- **Creature row rebalancing** — When split into 2 rows, prefer moving a card to row 2 over compressing row 1 if row 2 has room to spare
+- **Cross-container insertion gaps** — Show visual gap/insertion indicator when dragging cards between rows or from other zones to a specific position within a row (requires custom collision detection beyond @dnd-kit/sortable's single-context limitation)

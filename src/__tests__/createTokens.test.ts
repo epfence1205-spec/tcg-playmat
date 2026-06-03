@@ -9,8 +9,8 @@ function makeEmptyState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -80,10 +80,10 @@ function countBattlefieldCards(state: GameState): number {
   for (const row of state.creatureArea.rows) {
     count += row.elements.length;
   }
+  count += state.row3.left.length;
+  count += state.row3.right.length;
   count += state.row4.left.length;
   count += state.row4.right.length;
-  count += state.row5.left.length;
-  count += state.row5.right.length;
   return count;
 }
 
@@ -94,10 +94,10 @@ function getAllBattlefieldCardData(state: GameState) {
       cards.push(rc.card);
     }
   }
+  for (const rc of state.row3.left) cards.push(rc.card);
+  for (const rc of state.row3.right) cards.push(rc.card);
   for (const rc of state.row4.left) cards.push(rc.card);
   for (const rc of state.row4.right) cards.push(rc.card);
-  for (const rc of state.row5.left) cards.push(rc.card);
-  for (const rc of state.row5.right) cards.push(rc.card);
   return cards;
 }
 
@@ -149,32 +149,32 @@ describe('createTokens', () => {
       (sum, row) => sum + row.elements.length, 0
     );
     expect(creatureCount).toBe(2);
+    expect(result.row3.left.length).toBe(0);
+    expect(result.row3.right.length).toBe(0);
     expect(result.row4.left.length).toBe(0);
     expect(result.row4.right.length).toBe(0);
-    expect(result.row5.left.length).toBe(0);
-    expect(result.row5.right.length).toBe(0);
   });
 
-  it('artifact tokens are placed in row4 right (artifacts)', () => {
+  it('artifact tokens are placed in row3 right (artifacts)', () => {
     const state = makeEmptyState();
     const token = makeArtifactToken();
 
     const result = createTokens(state, token, 3);
 
-    expect(result.row4.right.length).toBe(3);
+    expect(result.row3.right.length).toBe(3);
     const creatureCount = result.creatureArea.rows.reduce(
       (sum, row) => sum + row.elements.length, 0
     );
     expect(creatureCount).toBe(0);
   });
 
-  it('enchantment tokens are placed in row5 right (enchantments)', () => {
+  it('enchantment tokens are placed in row4 right (enchantments)', () => {
     const state = makeEmptyState();
     const token = makeEnchantmentToken();
 
     const result = createTokens(state, token, 2);
 
-    expect(result.row5.right.length).toBe(2);
+    expect(result.row4.right.length).toBe(2);
   });
 
   it('returns state unchanged when quantity is 0', () => {

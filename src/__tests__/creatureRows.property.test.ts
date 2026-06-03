@@ -133,12 +133,18 @@ const rowCardsWithKnownGrouping: fc.Arbitrary<{
 // ─── Property Tests ──────────────────────────────────────────────────────────
 
 describe('Property 6: Creature Row Capacity', () => {
-  it('N ≤ 14 independent elements → exactly 1 row', () => {
+  // Wide container must handle up to 14 names × 5 copies = 70 cards at 16vh * 10.8 ≈ 12400px
+  const WIDE = 13000;
+  const NARROW = 2000;
+  const VH = 10.8;
+  const GAP = 4;
+
+  it('N ≤ 14 independent elements → exactly 1 row (wide container)', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 0, max: 14 }).chain((n) => creatureAreaWithElements(n)),
         (area: CreatureArea) => {
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, WIDE, VH, GAP);
           expect(result.rows.length).toBe(1);
         }
       ),
@@ -146,12 +152,12 @@ describe('Property 6: Creature Row Capacity', () => {
     );
   });
 
-  it('14 < N ≤ 28 independent elements → exactly 2 rows', () => {
+  it('14 < N ≤ 28 independent elements → exactly 2 rows (narrow container)', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 15, max: 28 }).chain((n) => creatureAreaWithElements(n)),
         (area: CreatureArea) => {
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, NARROW, VH, GAP);
           expect(result.rows.length).toBe(2);
         }
       ),
@@ -164,7 +170,7 @@ describe('Property 6: Creature Row Capacity', () => {
       fc.property(
         fc.integer({ min: 29, max: 40 }).chain((n) => creatureAreaWithElements(n)),
         (area: CreatureArea) => {
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, NARROW, VH, GAP);
           expect(result.rows.length).toBe(2);
         }
       ),
@@ -179,7 +185,7 @@ describe('Property 6: Creature Row Capacity', () => {
         (area: CreatureArea) => {
           const allElements = area.rows.flatMap((r) => r.elements);
           const expectedCount = countIndependentElements(allElements);
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, WIDE, VH, GAP);
           expect(result.totalElementCount).toBe(expectedCount);
         }
       ),
@@ -192,7 +198,7 @@ describe('Property 6: Creature Row Capacity', () => {
       fc.property(
         fc.integer({ min: 0, max: 50 }).chain((n) => creatureAreaWithElements(n)),
         (area: CreatureArea) => {
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, NARROW, VH, GAP);
           expect(result.rows.length).toBeGreaterThanOrEqual(1);
           expect(result.rows.length).toBeLessThanOrEqual(2);
         }
@@ -252,12 +258,12 @@ describe('Property 7: Fanned Group Invariant', () => {
             })
         ),
         ({ cards, uniqueCount }) => {
-          // Even with many total cards, if unique names ≤ 14, should be 1 row
+          // Max 14 names × 10 copies = 140 cards. Use wide container that fits all.
           const area: CreatureArea = {
             rows: [{ id: 'creature-1', elements: cards }],
             totalElementCount: 0,
           };
-          const result = recalculateCreatureRows(area);
+          const result = recalculateCreatureRows(area, 25000, 10.8, 4);
           expect(result.rows.length).toBe(1);
           expect(result.totalElementCount).toBe(uniqueCount);
         }

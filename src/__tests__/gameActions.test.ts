@@ -55,10 +55,10 @@ function makeExileCard(id: string, isFaceDown = false): ExileCard {
 function totalCardCount(state: GameState): number {
   const battlefieldCount =
     state.creatureArea.rows.reduce((sum, r) => sum + r.elements.length, 0) +
+    state.row3.left.length +
+    state.row3.right.length +
     state.row4.left.length +
-    state.row4.right.length +
-    state.row5.left.length +
-    state.row5.right.length;
+    state.row4.right.length;
   return (
     state.hand.length +
     battlefieldCount +
@@ -72,10 +72,10 @@ function totalCardCount(state: GameState): number {
 /** Helper to create a base game state with the new structure */
 function createTestState(overrides?: {
   creatureCards?: RowCard[];
+  row3Left?: RowCard[];
+  row3Right?: RowCard[];
   row4Left?: RowCard[];
   row4Right?: RowCard[];
-  row5Left?: RowCard[];
-  row5Right?: RowCard[];
   hand?: CardData[];
   commandZone?: CardData[];
   graveyard?: CardData[];
@@ -89,8 +89,8 @@ function createTestState(overrides?: {
       rows: [{ id: 'creature-1', elements: creatureCards }],
       totalElementCount: creatureCards.length,
     },
+    row3: { left: overrides?.row3Left ?? [], right: overrides?.row3Right ?? [] },
     row4: { left: overrides?.row4Left ?? [], right: overrides?.row4Right ?? [] },
-    row5: { left: overrides?.row5Left ?? [], right: overrides?.row5Right ?? [] },
     hand: overrides?.hand ?? [],
     commandZone: overrides?.commandZone ?? [],
     graveyard: overrides?.graveyard ?? [],
@@ -332,31 +332,31 @@ describe('moveCard', () => {
       expect(getCreatureCards(result)).toHaveLength(1);
     });
 
-    it('auto-assigns land to row4 left when no targetRow specified', () => {
+    it('auto-assigns land to row3 left when no targetRow specified', () => {
       const card = makeCard('a', { cardType: 'land', typeLine: 'Basic Land — Forest' });
       const state = createTestState({ hand: [card] });
       const result = moveCard(state, 'a', 'hand', 'battlefield');
 
-      expect(result.row4.left).toHaveLength(1);
-      expect(result.row4.left[0].card.id).toBe('a');
+      expect(result.row3.left).toHaveLength(1);
+      expect(result.row3.left[0].card.id).toBe('a');
     });
 
-    it('auto-assigns artifact to row4 right when no targetRow specified', () => {
+    it('auto-assigns artifact to row3 right when no targetRow specified', () => {
       const card = makeCard('a', { cardType: 'artifact', typeLine: 'Artifact' });
+      const state = createTestState({ hand: [card] });
+      const result = moveCard(state, 'a', 'hand', 'battlefield');
+
+      expect(result.row3.right).toHaveLength(1);
+      expect(result.row3.right[0].card.id).toBe('a');
+    });
+
+    it('auto-assigns enchantment to row4 right when no targetRow specified', () => {
+      const card = makeCard('a', { cardType: 'enchantment', typeLine: 'Enchantment' });
       const state = createTestState({ hand: [card] });
       const result = moveCard(state, 'a', 'hand', 'battlefield');
 
       expect(result.row4.right).toHaveLength(1);
       expect(result.row4.right[0].card.id).toBe('a');
-    });
-
-    it('auto-assigns enchantment to row5 right when no targetRow specified', () => {
-      const card = makeCard('a', { cardType: 'enchantment', typeLine: 'Enchantment' });
-      const state = createTestState({ hand: [card] });
-      const result = moveCard(state, 'a', 'hand', 'battlefield');
-
-      expect(result.row5.right).toHaveLength(1);
-      expect(result.row5.right[0].card.id).toBe('a');
     });
   });
 });

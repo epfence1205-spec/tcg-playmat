@@ -42,7 +42,7 @@ export function createRowCard(
 export function findCardOnBattlefield(
   state: GameState,
   cardId: string
-): { card: RowCard; location: 'creatureArea' | 'row4-left' | 'row4-right' | 'row5-left' | 'row5-right'; rowIndex?: number } | null {
+): { card: RowCard; location: 'creatureArea' | 'row3-left' | 'row3-right' | 'row4-left' | 'row4-right'; rowIndex?: number } | null {
   // Search creature area rows
   for (let i = 0; i < state.creatureArea.rows.length; i++) {
     const row = state.creatureArea.rows[i];
@@ -58,11 +58,29 @@ export function findCardOnBattlefield(
     }
   }
 
+  // Search row3
+  const r4Left = state.row3.left.find(rc => rc.instanceId === cardId);
+  if (r4Left) return { card: r4Left, location: 'row3-left' };
+  const r4Right = state.row3.right.find(rc => rc.instanceId === cardId);
+  if (r4Right) return { card: r4Right, location: 'row3-right' };
+
+  // Search row3 attachments
+  for (const rc of state.row3.left) {
+    if (rc.attachments.find(a => a.instanceId === cardId)) {
+      return { card: rc, location: 'row3-left' };
+    }
+  }
+  for (const rc of state.row3.right) {
+    if (rc.attachments.find(a => a.instanceId === cardId)) {
+      return { card: rc, location: 'row3-right' };
+    }
+  }
+
   // Search row4
-  const r4Left = state.row4.left.find(rc => rc.instanceId === cardId);
-  if (r4Left) return { card: r4Left, location: 'row4-left' };
-  const r4Right = state.row4.right.find(rc => rc.instanceId === cardId);
-  if (r4Right) return { card: r4Right, location: 'row4-right' };
+  const r5Left = state.row4.left.find(rc => rc.instanceId === cardId);
+  if (r5Left) return { card: r5Left, location: 'row4-left' };
+  const r5Right = state.row4.right.find(rc => rc.instanceId === cardId);
+  if (r5Right) return { card: r5Right, location: 'row4-right' };
 
   // Search row4 attachments
   for (const rc of state.row4.left) {
@@ -76,29 +94,11 @@ export function findCardOnBattlefield(
     }
   }
 
-  // Search row5
-  const r5Left = state.row5.left.find(rc => rc.instanceId === cardId);
-  if (r5Left) return { card: r5Left, location: 'row5-left' };
-  const r5Right = state.row5.right.find(rc => rc.instanceId === cardId);
-  if (r5Right) return { card: r5Right, location: 'row5-right' };
-
-  // Search row5 attachments
-  for (const rc of state.row5.left) {
-    if (rc.attachments.find(a => a.instanceId === cardId)) {
-      return { card: rc, location: 'row5-left' };
-    }
-  }
-  for (const rc of state.row5.right) {
-    if (rc.attachments.find(a => a.instanceId === cardId)) {
-      return { card: rc, location: 'row5-right' };
-    }
-  }
-
   return null;
 }
 
 /**
- * Returns all RowCards from all battlefield zones (creature area, row4, row5),
+ * Returns all RowCards from all battlefield zones (creature area, row3, row4),
  * including cards within attachments.
  */
 export function getAllBattlefieldCards(state: GameState): RowCard[] {
@@ -111,13 +111,13 @@ export function getAllBattlefieldCards(state: GameState): RowCard[] {
     }
   }
 
+  // Row 3
+  cards.push(...state.row3.left);
+  cards.push(...state.row3.right);
+
   // Row 4
   cards.push(...state.row4.left);
   cards.push(...state.row4.right);
-
-  // Row 5
-  cards.push(...state.row5.left);
-  cards.push(...state.row5.right);
 
   return cards;
 }
@@ -185,7 +185,7 @@ export function shuffleLibrary(state: GameState): GameState {
 
 /**
  * Removes a card from the specified zone and returns the CardData.
- * For battlefield zones, searches creature rows, row4, row5, and attachment slots.
+ * For battlefield zones, searches creature rows, row3, row4, and attachment slots.
  * Throws if the card is not found.
  */
 export function removeCardFromZone(
@@ -216,7 +216,7 @@ export function removeCardFromZone(
 
 /**
  * Internal helper: removes a card from any battlefield location
- * (creature rows, row4, row5, or attachment slots).
+ * (creature rows, row3, row4, or attachment slots).
  */
 function removeCardFromBattlefield(
   state: GameState,
@@ -265,11 +265,51 @@ function removeCardFromBattlefield(
     }
   }
 
-  // Search row4 left
-  const r4lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
+  // Search row3 left
+  const r4lIdx = state.row3.left.findIndex(rc => rc.instanceId === cardId);
   if (r4lIdx !== -1) {
-    const card = state.row4.left[r4lIdx].card;
-    const newLeft = [...state.row4.left.slice(0, r4lIdx), ...state.row4.left.slice(r4lIdx + 1)];
+    const card = state.row3.left[r4lIdx].card;
+    const newLeft = [...state.row3.left.slice(0, r4lIdx), ...state.row3.left.slice(r4lIdx + 1)];
+    return { card, newState: { ...state, row3: { ...state.row3, left: newLeft } } };
+  }
+  // Search row3 left attachments
+  for (const rc of state.row3.left) {
+    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
+    if (attIdx !== -1) {
+      const card = rc.attachments[attIdx].card;
+      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
+      const newLeft = state.row3.left.map(el =>
+        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
+      );
+      return { card, newState: { ...state, row3: { ...state.row3, left: newLeft } } };
+    }
+  }
+
+  // Search row3 right
+  const r4rIdx = state.row3.right.findIndex(rc => rc.instanceId === cardId);
+  if (r4rIdx !== -1) {
+    const card = state.row3.right[r4rIdx].card;
+    const newRight = [...state.row3.right.slice(0, r4rIdx), ...state.row3.right.slice(r4rIdx + 1)];
+    return { card, newState: { ...state, row3: { ...state.row3, right: newRight } } };
+  }
+  // Search row3 right attachments
+  for (const rc of state.row3.right) {
+    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
+    if (attIdx !== -1) {
+      const card = rc.attachments[attIdx].card;
+      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
+      const newRight = state.row3.right.map(el =>
+        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
+      );
+      return { card, newState: { ...state, row3: { ...state.row3, right: newRight } } };
+    }
+  }
+
+  // Search row4 left
+  const r5lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
+  if (r5lIdx !== -1) {
+    const card = state.row4.left[r5lIdx].card;
+    const newLeft = [...state.row4.left.slice(0, r5lIdx), ...state.row4.left.slice(r5lIdx + 1)];
     return { card, newState: { ...state, row4: { ...state.row4, left: newLeft } } };
   }
   // Search row4 left attachments
@@ -286,10 +326,10 @@ function removeCardFromBattlefield(
   }
 
   // Search row4 right
-  const r4rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
-  if (r4rIdx !== -1) {
-    const card = state.row4.right[r4rIdx].card;
-    const newRight = [...state.row4.right.slice(0, r4rIdx), ...state.row4.right.slice(r4rIdx + 1)];
+  const r5rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
+  if (r5rIdx !== -1) {
+    const card = state.row4.right[r5rIdx].card;
+    const newRight = [...state.row4.right.slice(0, r5rIdx), ...state.row4.right.slice(r5rIdx + 1)];
     return { card, newState: { ...state, row4: { ...state.row4, right: newRight } } };
   }
   // Search row4 right attachments
@@ -305,56 +345,16 @@ function removeCardFromBattlefield(
     }
   }
 
-  // Search row5 left
-  const r5lIdx = state.row5.left.findIndex(rc => rc.instanceId === cardId);
-  if (r5lIdx !== -1) {
-    const card = state.row5.left[r5lIdx].card;
-    const newLeft = [...state.row5.left.slice(0, r5lIdx), ...state.row5.left.slice(r5lIdx + 1)];
-    return { card, newState: { ...state, row5: { ...state.row5, left: newLeft } } };
-  }
-  // Search row5 left attachments
-  for (const rc of state.row5.left) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newLeft = state.row5.left.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row5: { ...state.row5, left: newLeft } } };
-    }
-  }
-
-  // Search row5 right
-  const r5rIdx = state.row5.right.findIndex(rc => rc.instanceId === cardId);
-  if (r5rIdx !== -1) {
-    const card = state.row5.right[r5rIdx].card;
-    const newRight = [...state.row5.right.slice(0, r5rIdx), ...state.row5.right.slice(r5rIdx + 1)];
-    return { card, newState: { ...state, row5: { ...state.row5, right: newRight } } };
-  }
-  // Search row5 right attachments
-  for (const rc of state.row5.right) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newRight = state.row5.right.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row5: { ...state.row5, right: newRight } } };
-    }
-  }
-
   throw new Error(`Card ${cardId} not found on battlefield`);
 }
 
 /**
  * Determines the default RowTarget for a card based on its cardType and oracle text.
  * - creature → creature-1
- * - land (basic/mana-only) → row4-lands
- * - land (utility — has oracle text beyond basic mana) → row5-lands
- * - artifact → row4-artifacts
- * - enchantment → row5-enchantments
+ * - land (basic/mana-only) → row3-lands
+ * - land (utility — has oracle text beyond basic mana) → row4-lands
+ * - artifact → row3-artifacts
+ * - enchantment → row4-enchantments
  * - planeswalker/battle → pw-battle-column
  * - other (instant/sorcery/other) → creature-1 (fallback)
  */
@@ -363,15 +363,15 @@ function getDefaultRowTarget(card: CardData): RowTarget {
     case 'creature':
       return 'creature-1';
     case 'land': {
-      // Basic lands go to row4 always
+      // Basic lands go to row3 always
       const isBasic = card.typeLine.toLowerCase().includes('basic');
-      if (isBasic) return 'row4-lands';
+      if (isBasic) return 'row3-lands';
       
       // Non-basic lands: check if they ONLY produce mana or have other abilities
       // Mana-only: oracle text only contains tap-for-mana abilities
       // Utility: has abilities beyond mana production (ETB effects, activated abilities that aren't mana, grants abilities, etc.)
       const text = (card.oracleText || '').trim();
-      if (!text) return 'row4-lands'; // No text = mana-only (like some promo basics)
+      if (!text) return 'row3-lands'; // No text = mana-only (like some promo basics)
       
       // Split into abilities (separated by newlines)
       const abilities = text.split('\n').map(a => a.trim()).filter(a => a.length > 0);
@@ -382,12 +382,12 @@ function getDefaultRowTarget(card: CardData): RowTarget {
         return lower.includes('add') && (lower.includes('{t}') || lower.includes('tap'));
       });
       
-      return allManaOnly ? 'row4-lands' : 'row5-lands';
+      return allManaOnly ? 'row3-lands' : 'row4-lands';
     }
     case 'artifact':
-      return 'row4-artifacts';
+      return 'row3-artifacts';
     case 'enchantment':
-      return 'row5-enchantments';
+      return 'row4-enchantments';
     case 'planeswalker':
     case 'battle':
       return 'pw-battle-column';
@@ -424,28 +424,28 @@ function addRowCardToTarget(
     return addToCreatureArea(state, card, target);
   }
 
+  if (target === 'row3-lands') {
+    const positionIndex = state.row3.left.length;
+    const rowCard = createRowCard(card, target, positionIndex);
+    return { ...state, row3: { ...state.row3, left: [...state.row3.left, rowCard] } };
+  }
+
+  if (target === 'row3-artifacts') {
+    const positionIndex = state.row3.right.length;
+    const rowCard = createRowCard(card, target, positionIndex);
+    return { ...state, row3: { ...state.row3, right: [...state.row3.right, rowCard] } };
+  }
+
   if (target === 'row4-lands') {
     const positionIndex = state.row4.left.length;
     const rowCard = createRowCard(card, target, positionIndex);
     return { ...state, row4: { ...state.row4, left: [...state.row4.left, rowCard] } };
   }
 
-  if (target === 'row4-artifacts') {
+  if (target === 'row4-enchantments') {
     const positionIndex = state.row4.right.length;
     const rowCard = createRowCard(card, target, positionIndex);
     return { ...state, row4: { ...state.row4, right: [...state.row4.right, rowCard] } };
-  }
-
-  if (target === 'row5-lands') {
-    const positionIndex = state.row5.left.length;
-    const rowCard = createRowCard(card, target, positionIndex);
-    return { ...state, row5: { ...state.row5, left: [...state.row5.left, rowCard] } };
-  }
-
-  if (target === 'row5-enchantments') {
-    const positionIndex = state.row5.right.length;
-    const rowCard = createRowCard(card, target, positionIndex);
-    return { ...state, row5: { ...state.row5, right: [...state.row5.right, rowCard] } };
   }
 
   // Fallback: add to creature-1
@@ -532,10 +532,10 @@ export function moveCard(
       const newRows = rows.map((r, i) => i === rowIdx ? { ...r, elements: newElements } : r);
       return { ...newState, creatureArea: recalculateCreatureRows({ rows: newRows, totalElementCount: 0 }) };
     }
+    if (row === 'row3-lands') return { ...newState, row3: { ...newState.row3, left: [...newState.row3.left, updatedRowCard] } };
+    if (row === 'row3-artifacts') return { ...newState, row3: { ...newState.row3, right: [...newState.row3.right, updatedRowCard] } };
     if (row === 'row4-lands') return { ...newState, row4: { ...newState.row4, left: [...newState.row4.left, updatedRowCard] } };
-    if (row === 'row4-artifacts') return { ...newState, row4: { ...newState.row4, right: [...newState.row4.right, updatedRowCard] } };
-    if (row === 'row5-lands') return { ...newState, row5: { ...newState.row5, left: [...newState.row5.left, updatedRowCard] } };
-    if (row === 'row5-enchantments') return { ...newState, row5: { ...newState.row5, right: [...newState.row5.right, updatedRowCard] } };
+    if (row === 'row4-enchantments') return { ...newState, row4: { ...newState.row4, right: [...newState.row4.right, updatedRowCard] } };
     // Fallback
     const rows2 = [...newState.creatureArea.rows];
     if (rows2.length === 0) rows2.push({ id: 'creature-1', elements: [] });
@@ -557,9 +557,9 @@ export function moveCard(
           s = { ...s, graveyard: [...s.graveyard, att.card] };
         } else {
           // Equipment stays on battlefield in its appropriate row
-          const attRow: RowTarget = 'row4-artifacts';
+          const attRow: RowTarget = 'row3-artifacts';
           const attRowCard = createRowCard(att.card, attRow, 0);
-          s = { ...s, row4: { ...s.row4, right: [...s.row4.right, attRowCard] } };
+          s = { ...s, row3: { ...s.row3, right: [...s.row3.right, attRowCard] } };
         }
       }
       // Clear attachments on the creature
@@ -573,14 +573,14 @@ export function moveCard(
           break;
         }
       }
+      if (s.row3.left.some(rc => rc.instanceId === cardId))
+        s = { ...s, row3: { ...s.row3, left: clearAtt(s.row3.left) } };
+      if (s.row3.right.some(rc => rc.instanceId === cardId))
+        s = { ...s, row3: { ...s.row3, right: clearAtt(s.row3.right) } };
       if (s.row4.left.some(rc => rc.instanceId === cardId))
         s = { ...s, row4: { ...s.row4, left: clearAtt(s.row4.left) } };
       if (s.row4.right.some(rc => rc.instanceId === cardId))
         s = { ...s, row4: { ...s.row4, right: clearAtt(s.row4.right) } };
-      if (s.row5.left.some(rc => rc.instanceId === cardId))
-        s = { ...s, row5: { ...s.row5, left: clearAtt(s.row5.left) } };
-      if (s.row5.right.some(rc => rc.instanceId === cardId))
-        s = { ...s, row5: { ...s.row5, right: clearAtt(s.row5.right) } };
       state = s;
     }
   }
@@ -614,7 +614,7 @@ export function moveCard(
 
 /**
  * Toggles the tapped state of a card on the battlefield.
- * Searches all battlefield locations (creature rows, row4, row5).
+ * Searches all battlefield locations (creature rows, row3, row4).
  *
  * Preconditions:
  * - cardId exists on the battlefield
@@ -639,43 +639,43 @@ export function tapCard(state: GameState, cardId: string): GameState {
     }
   }
 
-  // Search row4
-  const r4lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
+  // Search row3
+  const r4lIdx = state.row3.left.findIndex(rc => rc.instanceId === cardId);
   if (r4lIdx !== -1) {
+    const newLeft = state.row3.left.map(rc =>
+      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
+    );
+    return { ...state, row3: { ...state.row3, left: newLeft } };
+  }
+  const r4rIdx = state.row3.right.findIndex(rc => rc.instanceId === cardId);
+  if (r4rIdx !== -1) {
+    const newRight = state.row3.right.map(rc =>
+      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
+    );
+    return { ...state, row3: { ...state.row3, right: newRight } };
+  }
+
+  // Search row4
+  const r5lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
+  if (r5lIdx !== -1) {
     const newLeft = state.row4.left.map(rc =>
       rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
     );
     return { ...state, row4: { ...state.row4, left: newLeft } };
   }
-  const r4rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
-  if (r4rIdx !== -1) {
+  const r5rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
+  if (r5rIdx !== -1) {
     const newRight = state.row4.right.map(rc =>
       rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
     );
     return { ...state, row4: { ...state.row4, right: newRight } };
   }
 
-  // Search row5
-  const r5lIdx = state.row5.left.findIndex(rc => rc.instanceId === cardId);
-  if (r5lIdx !== -1) {
-    const newLeft = state.row5.left.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row5: { ...state.row5, left: newLeft } };
-  }
-  const r5rIdx = state.row5.right.findIndex(rc => rc.instanceId === cardId);
-  if (r5rIdx !== -1) {
-    const newRight = state.row5.right.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row5: { ...state.row5, right: newRight } };
-  }
-
   throw new Error(`Card ${cardId} not found on battlefield`);
 }
 
 /**
- * Untaps ALL battlefield cards (creature rows, row4, row5) including their attachments.
+ * Untaps ALL battlefield cards (creature rows, row3, row4) including their attachments.
  * Sets isTapped = false on every RowCard and every Attachment.
  *
  * Postconditions:
@@ -700,13 +700,13 @@ export function untapAll(state: GameState): GameState {
   return {
     ...state,
     creatureArea: { ...state.creatureArea, rows: newCreatureRows },
+    row3: {
+      left: untapRowCards(state.row3.left),
+      right: untapRowCards(state.row3.right),
+    },
     row4: {
       left: untapRowCards(state.row4.left),
       right: untapRowCards(state.row4.right),
-    },
-    row5: {
-      left: untapRowCards(state.row5.left),
-      right: untapRowCards(state.row5.right),
     },
   };
 }
@@ -792,20 +792,20 @@ export function transformDFC(state: GameState, cardId: string): GameState {
       return newState;
     }
   }
+  if (state.row3.left.some(rc => rc.instanceId === cardId)) {
+    const newState = { ...state, row3: { ...state.row3, left: updateCard(state.row3.left) } };
+    return moveCard(newState, cardId, 'battlefield', 'battlefield');
+  }
+  if (state.row3.right.some(rc => rc.instanceId === cardId)) {
+    const newState = { ...state, row3: { ...state.row3, right: updateCard(state.row3.right) } };
+    return moveCard(newState, cardId, 'battlefield', 'battlefield');
+  }
   if (state.row4.left.some(rc => rc.instanceId === cardId)) {
     const newState = { ...state, row4: { ...state.row4, left: updateCard(state.row4.left) } };
     return moveCard(newState, cardId, 'battlefield', 'battlefield');
   }
   if (state.row4.right.some(rc => rc.instanceId === cardId)) {
     const newState = { ...state, row4: { ...state.row4, right: updateCard(state.row4.right) } };
-    return moveCard(newState, cardId, 'battlefield', 'battlefield');
-  }
-  if (state.row5.left.some(rc => rc.instanceId === cardId)) {
-    const newState = { ...state, row5: { ...state.row5, left: updateCard(state.row5.left) } };
-    return moveCard(newState, cardId, 'battlefield', 'battlefield');
-  }
-  if (state.row5.right.some(rc => rc.instanceId === cardId)) {
-    const newState = { ...state, row5: { ...state.row5, right: updateCard(state.row5.right) } };
     return moveCard(newState, cardId, 'battlefield', 'battlefield');
   }
 
@@ -843,18 +843,18 @@ function toggleBattlefieldProperty(
     }
   }
 
+  // Search row3 left
+  const r4l = toggleInCards(state.row3.left);
+  if (r4l.found) return { ...state, row3: { ...state.row3, left: r4l.cards } };
+  // Search row3 right
+  const r4r = toggleInCards(state.row3.right);
+  if (r4r.found) return { ...state, row3: { ...state.row3, right: r4r.cards } };
   // Search row4 left
-  const r4l = toggleInCards(state.row4.left);
-  if (r4l.found) return { ...state, row4: { ...state.row4, left: r4l.cards } };
+  const r5l = toggleInCards(state.row4.left);
+  if (r5l.found) return { ...state, row4: { ...state.row4, left: r5l.cards } };
   // Search row4 right
-  const r4r = toggleInCards(state.row4.right);
-  if (r4r.found) return { ...state, row4: { ...state.row4, right: r4r.cards } };
-  // Search row5 left
-  const r5l = toggleInCards(state.row5.left);
-  if (r5l.found) return { ...state, row5: { ...state.row5, left: r5l.cards } };
-  // Search row5 right
-  const r5r = toggleInCards(state.row5.right);
-  if (r5r.found) return { ...state, row5: { ...state.row5, right: r5r.cards } };
+  const r5r = toggleInCards(state.row4.right);
+  if (r5r.found) return { ...state, row4: { ...state.row4, right: r5r.cards } };
 
   throw new Error(`Card ${cardId} not found on battlefield`);
 }
@@ -869,7 +869,7 @@ function toggleBattlefieldProperty(
  *
  * Postconditions:
  * - Commanders in Command Zone, all other cards in Library
- * - Hand, Battlefield (creatureArea, row4, row5), Graveyard, Exile are empty
+ * - Hand, Battlefield (creatureArea, row3, row4), Graveyard, Exile are empty
  * - All tap/face-down/counter states cleared
  * - No page refresh occurred
  * - Total card count unchanged
@@ -895,8 +895,8 @@ export function softReset(state: GameState): GameState {
   return {
     gamePhase: 'MULLIGAN',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: commanders,
     graveyard: [],
@@ -922,8 +922,8 @@ export function isGameInProgress(state: GameState): boolean {
   for (const row of state.creatureArea.rows) {
     if (row.elements.length > 0) return true;
   }
+  if (state.row3.left.length > 0 || state.row3.right.length > 0) return true;
   if (state.row4.left.length > 0 || state.row4.right.length > 0) return true;
-  if (state.row5.left.length > 0 || state.row5.right.length > 0) return true;
 
   return false;
 }

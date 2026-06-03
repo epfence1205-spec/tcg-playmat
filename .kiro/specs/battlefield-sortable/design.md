@@ -1,211 +1,224 @@
-# Design Document: Battlefield Sortable + Unified Card Slot
+# Design Document: Battlefield Sortable
 
 ## Overview
 
-The battlefield currently has conflicting drag architectures that prevent drag-to-reorder within rows. `DraggableCard` owns `useDraggable` (card art is drag source), `DroppableCardSlot` owns `useDroppable` (outer div is drop target for equipment), and `@dnd-kit/sortable` cannot be layered on top because it conflicts with the inner `useDraggable`. Additionally, equipped and non-equipped creatures have completely different DOM structures, causing branching logic and inconsistent rotation behavior.
+This design adds drag-to-reorder within battlefield rows using `@dnd-kit/sortable`, enables equipment detach via drag, and preserves all existing interactions (tap, compression, cross-zone drag, equipment docking, fan-out).
 
-This design introduces a **Unified Card Slot** pattern where `BattlefieldCardSlot` uses `useSortable` as the single drag/drop/sort primitive. A `RotatingUnit` wrapper handles tap rotation for the entire card assembly (equipment cascade + card art + banners), eliminating the current split between `EquipmentDock` rotation and bare card rotation. `DraggableCard` gains a `disableDrag` prop so it becomes a pure visual component on the battlefield while retaining its own `useDraggable` in other zones.
+The core challenge is layering `useSortable` onto existing components without breaking the current `useDraggable` (equipment cards inside a creature's cascade) or the `useDroppable` (equipment docking target on creatures). The solution uses a **sortable wrapper pattern** where `useSortable` owns the outer positioning, while inner DraggableCards for equipment retain their own independent `useDraggable`.
+
+### Key Design Decisions
+
+1. **Wrapper, not replacement**: Sortable is added as an outer wrapper around existing `CreatureOuterDiv`/`DroppableCardSlot`. The inner components stay mostly unchanged.
+2. **Width-aware wrappers**: The sortable wrapper's width varies with tap state so `horizontalListSortingStrategy` computes correct shift offsets.
+3. **DragOverlay for equipped creatures**: During drag, the sortable ghost (opacity 0.3) stays in-flow while `DragOverlay` renders the full `CreatureOuterDiv` (cascade + card + overlays) following the cursor.
+4. **Equipment stays independently draggable**: Equipment `DraggableCard` instances inside the cascade keep their own `useDraggable`. The sortable wrapper does NOT swallow pointer events on equipment cards.
+5. **Priority routing in handleDragEnd**: Routing checks happen in priority order: attached-equipment-drag → equipment-docking → same-row-reorder → cross-row-move → cross-zone-move.
 
 ## Architecture
 
 ```mermaid
 graph TD
-    subgraph DndContext["AppShell DndContext"]
+    subgraph DndContext["App DndContext (single, shared)"]
         BF[Battlefield]
         HT[HandTray - own SortableContext]
     end
 
     subgraph Battlefield
-        CA[CreatureArea]
-        SR4[SplitRowTrack - Row 4]
-        SR5[SplitRowTrack - Row 5]
+        CA[CreatureArea - rows 1-3]
+        SR4[SplitRowTrack - Row 3]
+        SR5[SplitRowTrack - Row 4]
     end
 
     CA --> RT1[RowTrack creature-1]
     CA --> RT2[RowTrack creature-2]
-    CA --> RT3[RowTrack creature-3]
+    RT1 --> SC1["SortableContext (items=instanceIds)"]
+    SC1 --> SW1["SortableCardWrapper (useSortable)"]
+    SC1 --> SW2["SortableCardWrapper (useSortable)"]
+    SW1 --> COD1[CreatureOuterDiv]
+    SW2 --> COD2[CreatureOuterDiv]
 
-    RT1 --> SC1[SortableContext]
-    SC1 --> BCS1[BattlefieldCardSlot]
-    SC1 --> BCS2[BattlefieldCardSlot]
-    SC1 --> BCS3[BattlefieldCardSlot]
+    COD1 --> EQ["DraggableCard (equipment - own useDraggable)"]
+    COD1 --> MAIN["DraggableCard (creature - disableDrag=true)"]
 
-    BCS1 --> RU[RotatingUnit]
-    RU --> EC[EquipmentCascade - conditional]
-    RU --> CARD[DraggableCard - disableDrag]
-    RU --> BAN[NamePTBanner - conditional]
+    SR4 --> SC4["SortableContext (items=instanceIds)"]
+    SC4 --> SW4["SortableCardWrapper (useSortable)"]
+    SW4 --> DCS[DroppableCardSlot]
 ```
 
-### Before vs After
+### Sortable Wrapper Pattern
 
-```mermaid
-graph LR
-    subgraph Before["Current Architecture"]
-        DC[DraggableCard - useDraggable]
-        DCS[DroppableCardSlot - useDroppable]
-        ED[EquipmentDock - rotation + layout]
-    end
-
-    subgraph After["New Architecture"]
-        BCS[BattlefieldCardSlot - useSortable]
-        RU2[RotatingUnit - rotation only]
-        ED2[EquipmentDock - layout only]
-        DC2[DraggableCard - visual only]
-    end
-
-    Before -->|refactor| After
-```
-
-## Sequence Diagrams
-
-### Drag-to-Reorder Within Row
+The key architectural pattern is a thin `SortableCardWrapper` component that:
+1. Calls `useSortable` with the card's `instanceId`
+2. Applies `CSS.Transform.toString(transform)` + `transition` to position the element during drag
+3. Sets dynamic width based on tap state and attachment count
+4. Passes through all props to the inner component (CreatureOuterDiv or DroppableCardSlot)
+5. Does NOT capture pointer events on children — equipment DraggableCards bubble up naturally
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant BCS as BattlefieldCardSlot
+    participant SW as SortableCardWrapper
     participant SC as SortableContext
-    participant App as App.handleDragEnd
-    participant State as GameState
+    participant Neighbors as Other Wrappers
+    participant App as handleDragEnd
+    participant GS as GameState
 
-    User->>BCS: mousedown + drag (5px threshold)
-    BCS->>SC: useSortable activates drag
-    SC->>SC: Other slots shift aside via transform
-    User->>BCS: mouseup on new position
-    BCS->>App: DragEndEvent (active, over)
+    User->>SW: pointerdown + drag (activation distance)
+    SW->>SC: useSortable activates
+    SC->>Neighbors: Apply shift transforms
+    Note over SW: opacity: 0.3 (ghost stays in flow)
+    Note over App: DragOverlay renders full CreatureOuterDiv
+    User->>Neighbors: pointerup over neighbor
+    SW->>App: DragEndEvent {active, over}
     App->>App: Detect same-row reorder
-    App->>State: arrayMove(rowCards, oldIndex, newIndex)
-    State->>SC: Re-render with new order
-```
-
-### Equipment Docking via Drag
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant EqSlot as Equipment CardSlot
-    participant CreSlot as Creature CardSlot
-    participant App as App.handleDragEnd
-    participant State as GameState
-
-    User->>EqSlot: Drag equipment card
-    User->>CreSlot: Drop on creature slot
-    CreSlot->>App: DragEndEvent (active: equipment, over: creature)
-    App->>App: Detect equipment docking
-    App->>State: attachEquipment(state, equipId, creatureId)
-    State->>CreSlot: Re-render with attachment
-```
-
-### Cross-Zone Move (Hand to Battlefield)
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant HandCard as SortableHandCard
-    participant RowDrop as RowTrack droppable
-    participant App as App.handleDragEnd
-    participant State as GameState
-
-    User->>HandCard: Drag from hand
-    User->>RowDrop: Drop on battlefield row
-    RowDrop->>App: DragEndEvent (sourceZone: hand, over.rowId)
-    App->>App: Auto-correct row based on cardType
-    App->>State: moveCard(state, cardId, hand, battlefield, targetRow)
+    App->>GS: arrayMove(rowCards, oldIdx, newIdx)
+    GS->>SC: Re-render with new order
 ```
 
 ## Components and Interfaces
 
-### Component 1: BattlefieldCardSlot
+### Component 1: SortableCardWrapper
 
-**Purpose**: Unified sortable wrapper for every battlefield card. Replaces both `DroppableCardSlot` and the bare `DraggableCard` usage on the battlefield.
+**Purpose**: Thin wrapper that makes any battlefield card sortable without modifying its internals.
 
-**Interface**:
 ```typescript
-interface BattlefieldCardSlotProps {
-  el: RowCard;
-  onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
-  onEquipmentAction?: (action: EquipmentAction) => void;
-  style?: React.CSSProperties;
-  isCompressed?: boolean;
-}
-```
-
-**Responsibilities**:
-- Call `useSortable` with `id: el.instanceId` and data payload `{ cardId, cardName, sourceZone, cardType, rowId }`
-- Apply `transform` and `transition` from useSortable to the outer div (shift-aside animation)
-- Set opacity to 0.3 when this card is the active drag item
-- Render `RotatingUnit` as child containing all visual content
-- Provide equipment drop target semantics via sortable data
-
-### Component 2: RotatingUnit
-
-**Purpose**: Wrapper that applies tap rotation to the entire card assembly as one unit.
-
-**Interface**:
-```typescript
-interface RotatingUnitProps {
+interface SortableCardWrapperProps {
+  id: string;           // instanceId — sortable key
+  cardName: string;
+  cardType: CardType;
+  rowId: RowTarget;
   isTapped: boolean;
+  attachmentCount: number;
   children: React.ReactNode;
+  style?: React.CSSProperties;  // compression margins passed through
+  className?: string;
 }
 ```
 
-**Responsibilities**:
-- Apply `transform: rotate(90deg)` with `transition: transform 200ms ease` when `isTapped`
-- Set `transformOrigin: center center`
-- Contains: EquipmentCascade (conditional) + CardArt + CounterBadges + NamePTBanner
+**Implementation details**:
+- Calls `useSortable({ id, data: { cardId: id, cardName, sourceZone: 'battlefield', cardType, rowId } })`
+- Outer div applies `transform: CSS.Transform.toString(transform)`, `transition`, `opacity: isDragging ? 0.3 : 1`
+- Width: `isTapped ? '16vh' : \`${11.43 + attachmentCount * 2}vh\``
+- Height: always `16vh`
+- `flex-shrink: 0` to work within flex row
+- Merges `{...attributes}` and `{...listeners}` onto the outer div
+- The outer div has `ref={setNodeRef}` for sortable measurement
+- Additional `style` prop is spread (compression margins go here)
 
-### Component 3: DraggableCard (modified)
+### Component 2: CreatureOuterDiv (minimal changes)
 
-**Purpose**: Card visual component that optionally participates in drag. On the battlefield, drag is disabled (handled by parent `BattlefieldCardSlot`). In hand/sidebar, drag remains active.
+**Current role**: Renders creature cascade, rotation, overlays, fan-out. Uses `useDroppable` for equipment docking.
 
-**Interface change**:
-```typescript
-interface DraggableCardProps {
-  // ... existing props unchanged ...
-  /** When true, disables useDraggable — card becomes pure visual */
-  disableDrag?: boolean;
-}
-```
+**Changes for sortable**:
+- Equipment `DraggableCard` instances keep `disableDrag={false}` (independently draggable) — no change needed
+- Equipment card wrappers already have `onPointerDown={(e) => e.stopPropagation()}` — this prevents sortable from capturing equipment drags
+- The main creature `DraggableCard` keeps `disableDrag={true}` — no change needed
+- No rotation changes needed — CreatureOuterDiv already handles its own rotation via `outerStyle.transform`
 
-**Responsibilities**:
-- When `disableDrag === true`: skip `useDraggable`, render as static visual with click/hover handlers
-- When `disableDrag === false` (default): existing behavior unchanged
-- Always renders: card image, token badge, phased overlay
+**Key insight**: CreatureOuterDiv is rendered INSIDE the `SortableCardWrapper`. The sortable wrapper handles positioning/shift-aside. CreatureOuterDiv handles rotation/visuals internally. They compose cleanly.
 
-### Component 4: EquipmentDock (simplified)
+### Component 3: DroppableCardSlot (minimal changes)
 
-**Purpose**: Pure layout component rendering equipment cascade behind a creature. No longer handles rotation.
+**Current role**: Renders land/artifact/enchantment cards in SplitRowTrack with `useDroppable`.
 
-**Interface** (unchanged externally):
-```typescript
-interface EquipmentDockProps {
-  creature: RowCard;
-  attachments: RowCard[];
-  effectiveStats: EffectiveStats;
-  onAction: (action: EquipmentAction) => void;
-  onTapCard?: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
-}
-```
+**Changes for sortable**:
+- Wrapped by `SortableCardWrapper` at the SplitRowTrack level (not internally modified)
+- Internal `useDroppable` remains for equipment docking
+- No width changes needed internally — width is controlled by the outer wrapper
+
+### Component 4: RowTrack (in Battlefield.tsx, modified)
 
 **Changes**:
-- Remove `transform: rotate(90deg)` from the root div (rotation now handled by `RotatingUnit`)
-- Keep: cascade offset layout, sideways name labels, modified P/T overlay, Ctrl+click fan-out
-- `DraggableCard` calls inside EquipmentDock get `disableDrag={true}`
+- Import `SortableContext`, `horizontalListSortingStrategy`
+- Wrap element rendering in `<SortableContext items={ids} strategy={horizontalListSortingStrategy}>`
+- Replace bare `CreatureOuterDiv` with `SortableCardWrapper > CreatureOuterDiv`
+- Keep existing `useDroppable` on the row container for cross-zone drops
+- Keep compression logic — negative margins applied to `SortableCardWrapper` via `style` prop
 
-### Component 5: RowTrack (in Battlefield.tsx)
+```typescript
+// Conceptual structure
+<div ref={combinedRef} className="flex-1 flex flex-row items-center ...">
+  <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
+    {elements.map((el, idx) => (
+      <SortableCardWrapper
+        key={el.instanceId}
+        id={el.instanceId}
+        cardName={el.card.name}
+        cardType={el.card.cardType}
+        rowId={rowId}
+        isTapped={el.isTapped}
+        attachmentCount={el.attachments.length}
+        style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
+      >
+        <CreatureOuterDiv
+          creature={el}
+          onTapCard={onTapCard}
+          isCompressed={negativeMargin > 0}
+          {...otherProps}
+        />
+      </SortableCardWrapper>
+    ))}
+  </SortableContext>
+</div>
+```
 
-**Purpose**: Horizontal row track that wraps children in `SortableContext` for drag-to-reorder.
+### Component 5: SplitRowTrack (modified)
 
 **Changes**:
-- Import `SortableContext` and `horizontalListSortingStrategy`
-- Wrap card rendering in `<SortableContext items={ids} strategy={horizontalListSortingStrategy}>`
-- Replace `DroppableCardSlot` with `BattlefieldCardSlot`
-- Keep `useDroppable` for cross-zone drops (cards from hand landing on the row)
-- Keep dynamic spacing/compression logic unchanged
+- Each side (left/right) gets its own `SortableContext` with that side's `instanceId` array
+- Each `DroppableCardSlot` is wrapped in `SortableCardWrapper`
+- Same-name land overlap (negative margin for basics) is applied to the wrapper, not inside the slot
+
+### Component 6: DragOverlay Rendering (in App.tsx, enhanced)
+
+**Current**: Renders a simple card image during drag.
+
+**Enhancement**:
+- When `activeDragId` matches a battlefield card with attachments → render full `CreatureOuterDiv` in DragOverlay
+- When dragging an attached equipment → render just the equipment card image
+- When dragging an unequipped card → render simple card image (existing behavior)
+
+```typescript
+function renderDragOverlay(): React.ReactNode {
+  if (!activeDragId) return null;
+
+  // Check if it's a battlefield creature with attachments
+  const bfCard = findCardOnBattlefield(gameState, activeDragId);
+  if (bfCard && bfCard.card.attachments.length > 0) {
+    return (
+      <CreatureOuterDiv
+        creature={bfCard.card}
+        isCompressed={false}
+        onTapCard={() => {}}
+        style={{ opacity: 1, pointerEvents: 'none' }}
+      />
+    );
+  }
+
+  // Check if it's an attached equipment
+  if (isAttachedEquipment(activeDragId, gameState)) {
+    // Find the attachment card data
+    const allBf = [...gameState.creatureArea.rows.flatMap(r => r.elements),
+                   ...gameState.row3.left, ...gameState.row3.right,
+                   ...gameState.row4.left, ...gameState.row4.right];
+    for (const rc of allBf) {
+      const att = rc.attachments.find(a => a.instanceId === activeDragId);
+      if (att) {
+        return <img src={att.card.imageURI} alt={att.card.name}
+          className="w-[11.43vh] h-[16vh] rounded-md object-cover" draggable={false} />;
+      }
+    }
+  }
+
+  // Default: simple card image
+  const card = findCardAnywhere(activeDragId, gameState);
+  if (card) {
+    return <img src={card.imageURI} alt={card.name}
+      className="w-[11.43vh] h-[16vh] rounded-md object-cover" draggable={false} />;
+  }
+  return null;
+}
+```
 
 ## Data Models
 
@@ -214,388 +227,313 @@ interface EquipmentDockProps {
 ```typescript
 /** Data attached to each sortable item for handleDragEnd routing */
 interface SortableCardData {
-  cardId: string;
-  cardName: string;
+  cardId: string;         // instanceId
+  cardName: string;       // card.name
   sourceZone: 'battlefield';
-  cardType: CardType;
-  rowId: RowTarget;
+  cardType: CardType;     // creature, land, artifact, etc.
+  rowId: RowTarget;       // which row this card is in
 }
 ```
 
-**Validation Rules**:
-- `cardId` must be a valid UUID matching a `RowCard.instanceId` on the battlefield
-- `sourceZone` is always `'battlefield'` for BattlefieldCardSlot items
-- `cardType` determines equipment docking eligibility and row auto-correction
-- `rowId` enables same-row vs cross-row detection in handleDragEnd
+### Width Calculation for Sortable Wrapper
+
+```typescript
+/** Sortable wrapper width in vh units.
+ * Tapped cards rotate 90° — their horizontal footprint becomes the card height (16vh).
+ * Untapped cards: base card width + cascade offset per attachment.
+ */
+function sortableWrapperWidthVh(isTapped: boolean, attachmentCount: number): number {
+  return isTapped ? 16 : (11.43 + attachmentCount * 2);
+}
+```
+
+This differs from `computeOuterDivWidthVh` because:
+- When tapped, the card rotates 90° inside the wrapper, so the wrapper must be wide enough to contain the rotated card (= card height = 16vh)
+- The sortable strategy needs the actual horizontal footprint for shift calculations
+
+### handleDragEnd Routing Priority
+
+```
+Priority order (first match wins):
+1. Attached equipment drag → detach routing (re-equip, detach-to-row, detach-to-zone)
+2. Equipment/aura docking → attach to creature
+3. Same-row reorder → arrayMove
+4. Cross-row battlefield move → remove from source row, insert in target row
+5. Cross-zone move → moveCard between zones
+6. No target (over === null) → snap back, no-op
+```
 
 ### RowCard (unchanged)
 
-The existing `RowCard` interface remains the source of truth. No schema changes needed — the sortable layer is purely a UI concern that reads from `RowCard` and dispatches state updates via existing actions.
+The existing `RowCard` interface remains the source of truth. No schema changes needed — the sortable layer is purely a UI concern that reads from `RowCard` and dispatches state updates via existing `getRowCards`/`setRowCards`/`arrayMove`.
 
-## Key Functions with Formal Specifications
+## Key Algorithms
 
-### Function 1: handleSortableReorder
-
-```typescript
-function handleSortableReorder(
-  state: GameState,
-  cardId: string,
-  overCardId: string,
-  rowId: RowTarget
-): GameState
-```
-
-**Preconditions:**
-- `cardId` exists in the specified row's elements array
-- `overCardId` exists in the same row's elements array
-- `cardId !== overCardId`
-
-**Postconditions:**
-- Returns new GameState with the card moved to the position of `overCardId`
-- Total card count in the row is unchanged
-- All attachments on the moved card are preserved
-- Cards not involved in the reorder maintain their relative positions
-- No cards are duplicated or lost across the entire game state
-
-**Loop Invariants:** N/A (uses `arrayMove` — single operation)
-
-### Function 2: detectDragIntent
-
-```typescript
-function detectDragIntent(
-  active: { data: { current: SortableCardData } },
-  over: { id: string; data: { current: Record<string, unknown> } },
-  gameState: GameState
-): 'reorder' | 'equipment-dock' | 'cross-zone' | 'cross-row' | 'no-op'
-```
-
-**Preconditions:**
-- `active` contains valid `cardId` and `sourceZone`
-- `over` is non-null (drop landed on a valid target)
-
-**Postconditions:**
-- Returns exactly one intent category
-- `'reorder'`: active and over are in the same row, both are sortable battlefield items
-- `'equipment-dock'`: active is equipment/aura, over is a creature
-- `'cross-zone'`: active.sourceZone !== 'battlefield' OR over is a non-battlefield zone
-- `'cross-row'`: active is battlefield card, over is a different row
-- `'no-op'`: active.id === over.id (dropped on self)
-
-### Function 3: BattlefieldCardSlot component
-
-```typescript
-function BattlefieldCardSlot(props: BattlefieldCardSlotProps): JSX.Element
-```
-
-**Preconditions:**
-- `props.el` is a valid `RowCard` with non-null `instanceId` and `card`
-- Component is rendered inside a `SortableContext`
-
-**Postconditions:**
-- Renders exactly one sortable DOM node with `id === el.instanceId`
-- When `el.attachments.length > 0`: renders EquipmentDock inside RotatingUnit
-- When `el.attachments.length === 0`: renders DraggableCard directly inside RotatingUnit
-- `DraggableCard` always receives `disableDrag={true}`
-- Tap rotation is applied at the RotatingUnit level, not inside DraggableCard or EquipmentDock
-
-## Algorithmic Pseudocode
-
-### handleDragEnd Routing (updated)
+### handleDragEnd Updated Routing
 
 ```typescript
 function handleDragEnd(event: DragEndEvent): void {
+  setActiveDragId(null);
   const { active, over } = event;
-  if (!over) return; // snap back
+  if (!over) return; // Rule 4.7: snap back
 
   const cardId = active.data.current?.cardId as string;
   const sourceZone = active.data.current?.sourceZone as Zone;
+  if (!cardId || !sourceZone) return;
+
+  const overId = over.id as string;
   const overData = over.data.current;
 
-  // 1. Equipment docking: equipment/aura dropped on creature
-  if (isEquipmentDocking(active, over, gameState)) {
-    performEquipmentDock(cardId, overData.cardId);
-    return;
+  // ── Priority 1: Attached equipment being dragged ──
+  if (isAttachedEquipment(cardId, gameState)) {
+    const parentId = findParentCreature(cardId, gameState)!;
+    
+    // 1a: Drop on different creature → re-equip
+    if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
+      const targetId = overData.cardId as string;
+      if (targetId !== parentId) {
+        setState(prev => reattachEquipment(prev, cardId, parentId, targetId));
+      }
+      return;
+    }
+    // 1b: Drop on battlefield row → detach to standalone
+    if (overId.startsWith('row-') || overData?.rowId) {
+      setState(prev => detachEquipment(prev, cardId, parentId));
+      return;
+    }
+    // 1c: Drop on hand/graveyard/exile/etc → detach + move to zone
+    if (['hand-zone', 'hand-drop-zone'].includes(overId)) {
+      setState(prev => {
+        const d = detachEquipment(prev, cardId, parentId);
+        return moveCard(d, cardId, 'battlefield', 'hand');
+      });
+      return;
+    }
+    if (['graveyard', 'exile', 'commandZone', 'library'].includes(overId)) {
+      setState(prev => {
+        const d = detachEquipment(prev, cardId, parentId);
+        return moveCard(d, cardId, 'battlefield', overId as Zone);
+      });
+      return;
+    }
+    return; // No valid target → snap back
   }
 
-  // 2. Same-row reorder: both active and over are battlefield sortables in same row
+  // ── Priority 2: Equipment docking (unattached eq → creature) ──
+  if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
+    // ... existing equipment docking logic (unchanged) ...
+  }
+
+  // ── Priority 3: Same-row reorder ──
   if (sourceZone === 'battlefield' && overData?.sourceZone === 'battlefield') {
     const activeRowId = active.data.current?.rowId as RowTarget;
     const overRowId = overData?.rowId as RowTarget;
 
-    if (activeRowId === overRowId && cardId !== (over.id as string)) {
+    if (activeRowId === overRowId && cardId !== overId) {
       setState(prev => {
         const rowCards = getRowCards(prev, activeRowId);
         const oldIndex = rowCards.findIndex(rc => rc.instanceId === cardId);
-        const newIndex = rowCards.findIndex(rc => rc.instanceId === (over.id as string));
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        const reordered = arrayMove(rowCards, oldIndex, newIndex);
-        return setRowCards(prev, activeRowId, reordered);
+        const newIndex = rowCards.findIndex(rc => rc.instanceId === overId);
+        if (oldIndex === -1 || newIndex === -1) return prev; // Rule 4.8: invalid index guard
+        return setRowCards(prev, activeRowId, arrayMove(rowCards, oldIndex, newIndex));
       });
       return;
     }
 
-    // Cross-row move on battlefield
+    // ── Priority 4: Cross-row move ──
     if (activeRowId !== overRowId) {
-      setState(prev => moveCard(prev, cardId, 'battlefield', 'battlefield', overRowId));
+      setState(prev => {
+        const sourceCards = getRowCards(prev, activeRowId);
+        const cardIndex = sourceCards.findIndex(rc => rc.instanceId === cardId);
+        if (cardIndex === -1) return prev;
+        const card = sourceCards[cardIndex];
+        const newSource = sourceCards.filter(rc => rc.instanceId !== cardId);
+        const targetCards = getRowCards(prev, overRowId);
+        const insertAt = targetCards.findIndex(rc => rc.instanceId === overId);
+        const newTarget = [...targetCards];
+        newTarget.splice(
+          insertAt === -1 ? newTarget.length : insertAt,
+          0,
+          { ...card, rowAssignment: overRowId }
+        );
+        let state = setRowCards(prev, activeRowId, newSource);
+        state = setRowCards(state, overRowId, newTarget);
+        return state;
+      });
       return;
     }
   }
 
-  // 3. Hand reorder (existing, unchanged)
-  // 4. Cross-zone moves (existing, unchanged)
+  // ── Priority 5: Cross-zone moves (existing logic, unchanged) ──
+  // Hand reorder, hand→battlefield, battlefield→zone, zone→zone
 }
 ```
 
-### Helper: getRowCards / setRowCards
+### Equipment Drag Isolation
+
+The key to equipment drag isolation is **event propagation control**:
 
 ```typescript
-function getRowCards(state: GameState, rowId: RowTarget): RowCard[] {
-  if (rowId.startsWith('creature-')) {
-    const idx = parseInt(rowId.replace('creature-', ''), 10) - 1;
-    return state.creatureArea.rows[idx]?.elements ?? [];
-  }
-  if (rowId === 'row4-lands') return state.row4.left;
-  if (rowId === 'row4-artifacts') return state.row4.right;
-  if (rowId === 'row5-lands') return state.row5.left;
-  if (rowId === 'row5-enchantments') return state.row5.right;
-  return [];
-}
-
-function setRowCards(state: GameState, rowId: RowTarget, cards: RowCard[]): GameState {
-  if (rowId.startsWith('creature-')) {
-    const idx = parseInt(rowId.replace('creature-', ''), 10) - 1;
-    const newRows = state.creatureArea.rows.map((r, i) =>
-      i === idx ? { ...r, elements: cards } : r
-    );
-    return { ...state, creatureArea: { ...state.creatureArea, rows: newRows } };
-  }
-  if (rowId === 'row4-lands') return { ...state, row4: { ...state.row4, left: cards } };
-  if (rowId === 'row4-artifacts') return { ...state, row4: { ...state.row4, right: cards } };
-  if (rowId === 'row5-lands') return { ...state, row5: { ...state.row5, left: cards } };
-  if (rowId === 'row5-enchantments') return { ...state, row5: { ...state.row5, right: cards } };
-  return state;
-}
+// Inside CreatureOuterDiv, each equipment card already has:
+<div
+  onPointerDown={(e) => e.stopPropagation()} // Prevents sortable from capturing
+  onClick={(e) => e.stopPropagation()}        // Prevents tap toggle on parent
+>
+  <DraggableCard
+    card={attachment.card}
+    sourceZone="battlefield"
+    disableDrag={false}  // Equipment keeps its own useDraggable
+  />
+</div>
 ```
 
-## Example Usage
+When the user pointerdowns on an equipment card:
+1. `stopPropagation()` prevents the event from reaching `SortableCardWrapper`'s listeners
+2. `DraggableCard`'s own `useDraggable` activates independently
+3. The sortable layer is unaware of this drag — no shift-aside happens for parent creature
+4. `handleDragEnd` detects the card is attached equipment (Priority 1) and routes accordingly
 
-```typescript
-// RowTrack with SortableContext
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+### Compression + Sortable Transform Interaction
 
-function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction }: RowTrackProps) {
-  const ids = elements.map(el => el.instanceId);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [negativeMargin, setNegativeMargin] = useState(0);
-  const { setNodeRef, isOver } = useDroppable({ id: `row-${rowId}`, data: { rowId } });
+Compression uses negative `marginLeft` on each `SortableCardWrapper` to overlap cards visually. Sortable uses `CSS.Transform.toString(transform)` which generates `translate3d(x, y, 0)`. These are independent:
 
-  // ... dynamic spacing logic unchanged ...
+- **Negative margin**: affects layout flow (where the element "starts" in the flex container)
+- **Transform translate**: offsets the element visually from its layout position (GPU layer)
 
-  return (
-    <div ref={combinedRef} className="flex-1 flex flex-row items-center ...">
-      <SortableContext items={ids} strategy={horizontalListSortingStrategy}>
-        {elements.map((el, idx) => (
-          <BattlefieldCardSlot
-            key={el.instanceId}
-            el={el}
-            onTapCard={onTapCard}
-            onCardHoverStart={onCardHoverStart}
-            onCardHoverEnd={onCardHoverEnd}
-            onEquipmentAction={onEquipmentAction}
-            style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
-            isCompressed={negativeMargin > 0}
-          />
-        ))}
-      </SortableContext>
-    </div>
-  );
-}
+During drag, `horizontalListSortingStrategy` measures actual element rects (which include margin effects) and computes transforms to shift neighbors into their new positions. The negative margins remain constant — they set the baseline. Transforms animate on top.
 
-// BattlefieldCardSlot
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-
-function BattlefieldCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction, style, isCompressed }: BattlefieldCardSlotProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: el.instanceId,
-    data: {
-      cardId: el.instanceId,
-      cardName: el.card.name,
-      sourceZone: 'battlefield' as const,
-      cardType: el.card.cardType,
-      rowId: el.rowAssignment,
-    },
-  });
-
-  const sortableStyle: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-    zIndex: isDragging ? 50 : undefined,
-    ...style,
-  };
-
-  return (
-    <div ref={setNodeRef} style={sortableStyle} {...attributes} {...listeners} className="flex-shrink-0">
-      <RotatingUnit isTapped={el.isTapped}>
-        {el.attachments.length > 0 ? (
-          <EquipmentDock creature={el} attachments={attachmentRowCards} effectiveStats={effectiveStats} onAction={onEquipmentAction} onTapCard={onTapCard} onCardHoverStart={onCardHoverStart} onCardHoverEnd={onCardHoverEnd} />
-        ) : (
-          <DraggableCard card={el.card} sourceZone="battlefield" disableDrag={true} isTapped={false} isFaceDown={el.isFaceDown} showingBackFace={el.showingBackFace} onClick={onTapCard} onHoverStart={onCardHoverStart} onHoverEnd={onCardHoverEnd} />
-        )}
-        {/* Counter badges and name/PT banner rendered here */}
-      </RotatingUnit>
-    </div>
-  );
-}
-
-// RotatingUnit
-function RotatingUnit({ isTapped, children }: RotatingUnitProps) {
-  return (
-    <div
-      style={{
-        transform: isTapped ? 'rotate(90deg)' : undefined,
-        transition: 'transform 200ms ease',
-        transformOrigin: 'center center',
-        width: '11.43vh',
-        height: '16vh',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-// DraggableCard with disableDrag
-function DraggableCard({ card, sourceZone, disableDrag = false, isTapped, isFaceDown, showingBackFace, onClick, onHoverStart, onHoverEnd, className }: DraggableCardProps) {
-  // Only use the drag hook when drag is enabled
-  const { attributes, listeners, setNodeRef, transform, isDragging } = disableDrag
-    ? { attributes: {}, listeners: undefined, setNodeRef: undefined, transform: null, isDragging: false }
-    : useDraggable({ id: card.id, data: { cardId: card.id, cardName: card.name, sourceZone, cardType: card.cardType } });
-
-  const displayImage = isFaceDown ? CARD_BACK_URL : showingBackFace && card.backFaceImageURI ? card.backFaceImageURI : card.imageURI;
-
-  return (
-    <div
-      ref={disableDrag ? undefined : setNodeRef}
-      {...(disableDrag ? {} : listeners)}
-      {...(disableDrag ? {} : attributes)}
-      className={`select-none touch-none ${disableDrag ? 'cursor-pointer' : 'cursor-grab'} overflow-hidden relative ${className}`}
-      style={{ width: '11.43vh', height: '16vh', transform: transform ? CSS.Translate.toString(transform) : undefined }}
-      onClick={() => { if (!isDragging) onClick?.(card.id); }}
-      onMouseEnter={() => onHoverStart?.(card.id, sourceZone)}
-      onMouseLeave={() => onHoverEnd?.(card.id)}
-    >
-      <img src={displayImage} alt={card.name} className="w-full h-full rounded-md pointer-events-none object-cover" draggable={false} />
-      {card.isTokenCopy && <div className="absolute top-1 left-1 bg-black/70 text-white text-[9px] font-bold px-1 py-0.5 rounded pointer-events-none z-10">TOKEN</div>}
-    </div>
-  );
-}
-```
+**Important**: The wrapper's explicit `width` style ensures `horizontalListSortingStrategy` knows the correct horizontal footprint even when compression is active. Without explicit width, the strategy would measure the visual width (which is reduced by overlap) and compute incorrect shift amounts.
 
 ## Correctness Properties
 
+*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
 ### Property 1: Card Count Invariant
 
-For any reorder operation within a row, the total number of cards across all zones in the game state must remain constant. No cards are created or destroyed by a reorder.
+*For any* game state and any drag operation (reorder, cross-row move, equipment detach, equipment re-equip), the total number of unique card instances across all zones SHALL remain constant before and after the operation.
 
-`∀ reorder(state, cardId, newIndex): countAllCards(before) === countAllCards(after)`
+**Validates: Requirements 5.1, 5.3, 5.4**
 
-### Property 2: Attachment Preservation
+### Property 2: No Duplicate Instance IDs
 
-When a card with attachments is reordered, all its attachments move with it. The attachment array is never modified by a reorder.
+*For any* game state after any drag operation, collecting all `instanceId` values across all battlefield rows, all attachment arrays, hand, graveyard, exile, library, and command zone SHALL produce a set with no duplicates.
 
-`∀ reorder(state, cardId, newIndex): card.attachments === reorderedCard.attachments`
+**Validates: Requirements 5.2, 5.5**
 
-### Property 3: Single Sortable Identity
+### Property 3: Attachment Preservation During Reorder
 
-Each battlefield card has exactly one sortable ID (`instanceId`). No two sortable items in the same `SortableContext` share an ID.
+*For any* same-row reorder operation on a card with N attachments, the card's `attachments` array SHALL be deeply equal before and after reorder, AND all other cards in the row SHALL have unchanged `attachments` arrays.
 
-`∀ row: new Set(row.elements.map(e => e.instanceId)).size === row.elements.length`
+**Validates: Requirements 6.1, 6.2, 6.3**
 
-### Property 4: Rotation Unity
+### Property 4: Equipment Detach Placement
 
-When a card is tapped, the entire visual assembly (equipment cascade + card art + banners) rotates as one unit. There is no state where equipment rotates independently of its parent creature.
+*For any* attached equipment dragged to a valid target (row, hand, graveyard, exile), the equipment SHALL appear exactly once in the target location AND zero times in the source creature's attachments after the operation completes.
 
-### Property 5: Drag Source Exclusivity
+**Validates: Requirements 3.2, 3.3, 5.5**
 
-On the battlefield, only `BattlefieldCardSlot` (via `useSortable`) is a drag source. `DraggableCard` never activates its own `useDraggable` when rendered on the battlefield.
+### Property 5: Equipment Re-equip Atomicity
 
-`∀ battlefieldCard: DraggableCard.disableDrag === true`
+*For any* attached equipment dragged from creature A to creature B (where A ≠ B), the equipment SHALL appear in creature B's attachments and NOT in creature A's attachments, with no intermediate state where the equipment exists in neither or both.
 
-### Property 6: Hand Independence
+**Validates: Requirements 3.4**
 
-Hand cards continue using their own `useSortable` in `HandTray`. The battlefield sortable refactor does not affect hand drag behavior.
+### Property 6: Null Drop Is No-Op
+
+*For any* game state and any active drag, if `handleDragEnd` receives `over === null`, the resulting state SHALL be reference-equal to the input state (no mutation).
+
+**Validates: Requirements 3.5, 4.7**
+
+### Property 7: Hand Independence
+
+*For any* battlefield reorder or equipment operation, the `hand` array in the game state SHALL be reference-equal before and after the operation.
+
+**Validates: Requirements 7.2**
+
+### Property 8: Sortable Wrapper Width Formula
+
+*For any* `(isTapped: boolean, attachmentCount: number >= 0)` pair, the sortable wrapper width SHALL equal `16` vh when tapped, and `11.43 + attachmentCount * 2` vh when untapped.
+
+**Validates: Requirements 1.5**
 
 ## Error Handling
 
-### Error Scenario 1: Drop Outside Valid Target
+### Error 1: Drop Outside Valid Target
 
-**Condition**: User releases drag over empty space (no `over` target)
-**Response**: `handleDragEnd` returns early, DragOverlay snaps back via `dropAnimationConfig`
-**Recovery**: No state change, card returns to original position
+**Condition**: User releases drag over empty space (`over === null`).
+**Response**: `handleDragEnd` returns early. DragOverlay snaps back via `dropAnimationConfig` (250ms cubic-bezier ease).
+**Impact**: No state change. Card returns to original position visually.
 
-### Error Scenario 2: Reorder with Stale State
+### Error 2: Stale Index (findIndex returns -1)
 
-**Condition**: `arrayMove` receives indices that don't match current state (race condition with rapid drags)
-**Response**: `findIndex` returns -1, early return with no state change
-**Recovery**: Card snaps back, user can retry
+**Condition**: Rapid state changes during drag cause `findIndex` to not find the card in the expected row.
+**Response**: Early return with no state change (Rule 4.8).
+**Impact**: Card snaps back. User can retry the drag.
 
-### Error Scenario 3: Equipment Dock on Non-Creature
+### Error 3: Equipment Dropped on Non-Creature
 
-**Condition**: Equipment dropped on a non-creature sortable item
-**Response**: `isEquipmentDocking` check fails, falls through to reorder/cross-zone logic
-**Recovery**: Card is reordered or moved to appropriate row based on card type auto-correction
+**Condition**: Equipment card dropped on a land/artifact/enchantment sortable item.
+**Response**: Equipment docking check fails (`overData.cardType !== 'creature'`). Falls through to reorder/cross-row logic. Equipment is placed as standalone in that row.
+**Impact**: Graceful fallback — equipment becomes standalone card. User can re-dock via drag later.
 
-### Error Scenario 4: Sortable ID Collision
+### Error 4: Duplicate instanceId (defensive)
 
-**Condition**: Two cards somehow get the same `instanceId` (should never happen with UUID generation)
-**Response**: `@dnd-kit/sortable` may behave unpredictably with duplicate IDs
-**Recovery**: Defensive check in `createRowCard` ensures UUID uniqueness; if detected, log warning and regenerate
+**Condition**: Should never occur (UUID v4 collision probability ~2^-122).
+**Response**: If detected during render, `SortableContext` may show unpredictable behavior.
+**Prevention**: `createRowCard` always generates fresh UUIDs via `crypto.randomUUID()`.
+
+### Error 5: Compression Recalculation During Drag
+
+**Condition**: Container resize triggers compression recalculation while a card is actively being dragged.
+**Response**: Sortable transforms may briefly jump as baseline positions change mid-drag.
+**Mitigation**: Acceptable UX — positions self-correct on drop. Future optimization: freeze compression during active drag via `useDndContext().active` check.
 
 ## Testing Strategy
 
-### Unit Testing Approach
+### Property-Based Testing
 
-- Test `BattlefieldCardSlot` renders correctly for cards with and without attachments
-- Test `RotatingUnit` applies rotation transform when `isTapped={true}`
-- Test `DraggableCard` with `disableDrag={true}` does not attach drag listeners
-- Test `EquipmentDock` no longer applies rotation (pure layout verification)
-- Test `handleDragEnd` routing: verify correct intent detection for reorder vs dock vs cross-zone
+**Library**: fast-check (already available in the project via devDependencies)
 
-### Property-Based Testing Approach
+**Configuration**: Minimum 100 iterations per property test.
 
-**Property Test Library**: fast-check
+**Tag format**: `Feature: battlefield-sortable, Property {N}: {title}`
 
-Key properties to test:
+**Properties to implement**:
 
-1. **Card count invariant after reorder**: Generate arbitrary battlefield states and reorder operations. Assert total card count is unchanged.
-2. **Attachment preservation after reorder**: Generate cards with random attachments, reorder them, verify attachments are identical.
-3. **arrayMove idempotence**: `arrayMove(arr, i, i)` returns array unchanged.
-4. **No duplicate IDs in SortableContext**: For any generated row state, all instanceIds are unique.
+1. **Card count invariant** — Generate random GameState with random battlefield cards and attachments. Perform random reorder/detach/re-equip operations via `arrayMove`/`detachEquipment`/`reattachEquipment`. Assert total card count unchanged.
 
-### Integration Testing Approach
+2. **No duplicate IDs** — Generate random GameState, perform random drag operation. Collect all instanceIds from all zones, assert `new Set(ids).size === ids.length`.
 
-- Simulate full drag-and-drop sequences using `@dnd-kit` test utilities
-- Verify that reordering a card with equipment preserves the equipment visually
-- Verify that hand sortable still works independently after battlefield changes
-- Verify that cross-zone drag (hand to battlefield) still routes correctly
+3. **Attachment preservation** — Generate rows with multiple equipped creatures (random attachment counts 0-4). Perform `arrayMove` reorder. Deep-compare all attachment arrays before/after.
 
-## Performance Considerations
+4. **Equipment detach placement** — Generate state with 1+ equipped creature. Detach random equipment to random valid target. Assert exactly 1 occurrence in target, 0 in source attachments.
 
-- `useSortable` adds one `ResizeObserver` per sortable item. With 20+ creatures on battlefield, this is acceptable but should be monitored.
-- `SortableContext` with `horizontalListSortingStrategy` uses O(n) position calculations during drag. For typical battlefield sizes (< 30 cards per row), this is negligible.
-- The dynamic spacing `useEffect` recalculates on every element change. This is already the case and remains unchanged.
-- `CSS.Transform.toString(transform)` is called per-frame during drag for shifting items. This is GPU-accelerated and does not cause layout thrashing.
-- `DragOverlay` continues rendering the card image following the cursor — no change to overlay performance.
+5. **Re-equip atomicity** — Generate state with 2+ creatures (at least one equipped). Call `reattachEquipment`. Assert equipment in target's attachments, not in source's.
 
-## Security Considerations
+6. **Null drop no-op** — Generate random state. Simulate handleDragEnd with `over=null`. Assert state reference-equal.
 
-Not applicable — this is a client-side UI refactor with no network calls, authentication, or data persistence changes.
+7. **Hand independence** — Generate state with hand cards. Perform battlefield `arrayMove`. Assert `state.hand` reference equality.
 
-## Dependencies
+8. **Wrapper width formula** — Generate random `(boolean, number)` pairs. Assert `sortableWrapperWidthVh(tapped, N)` matches expected formula.
 
-- `@dnd-kit/core` (existing) — DndContext, sensors, collision detection
-- `@dnd-kit/sortable` (existing) — `useSortable`, `SortableContext`, `horizontalListSortingStrategy`, `arrayMove`
-- `@dnd-kit/utilities` (existing) — `CSS.Transform.toString`
-- No new dependencies required. All sortable primitives are already installed and used by `HandTray`.
+### Unit Tests (Example-Based)
+
+- `SortableCardWrapper` renders with correct width for tapped card (16vh) and untapped with 2 attachments (15.43vh)
+- `CreatureOuterDiv` equipment cards have `stopPropagation` on `onPointerDown`
+- `DroppableCardSlot` inside `SortableCardWrapper` still responds to equipment drops
+- Click on sortable-wrapped card toggles tap state (not consumed by sortable)
+- `DragOverlay` renders full `CreatureOuterDiv` when active card has attachments
+- `DragOverlay` renders simple card image for unequipped active card
+- Compression negative margins applied to `SortableCardWrapper` style prop
+- Alt+click fan-out works through sortable wrapper (event not captured by sortable)
+- `handleDragEnd` detects same-row reorder (same rowId, different instanceId)
+- `handleDragEnd` detects cross-row move (different rowId, both battlefield)
+- `handleDragEnd` returns early when `findIndex` returns -1 (invalid index guard)
+
+### Integration Tests
+
+- Full drag sequence: reorder two creatures in same row, verify final element order
+- Equipment detach: drag equipment off creature to hand zone, verify detach + zone move
+- Hand drag to battlefield: card lands in correct row (auto-assignment unaffected by sortable)
+- Hand reorder: hand sortable works independently of battlefield sortable
+- Cross-row move: drag creature from row 1 to row 2, verify placement

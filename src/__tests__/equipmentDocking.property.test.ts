@@ -15,7 +15,7 @@ import { createRowCard } from '../gameActions';
 /**
  * Property 9: Equipment Docking Isolation
  * After attachEquipment, the equipment card ID does NOT appear in any row flow
- * (creature area elements, row4.left, row4.right, row5.left, row5.right) —
+ * (creature area elements, row3.left, row3.right, row4.left, row4.right) —
  * it only exists in the creature's attachments array.
  *
  * Property 10: Equipment Stat Modifier Additivity
@@ -134,8 +134,8 @@ function emptyGameState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -160,10 +160,10 @@ function collectRowFlowIds(state: GameState): string[] {
     }
   }
 
+  for (const rc of state.row3.left) ids.push(rc.instanceId);
+  for (const rc of state.row3.right) ids.push(rc.instanceId);
   for (const rc of state.row4.left) ids.push(rc.instanceId);
   for (const rc of state.row4.right) ids.push(rc.instanceId);
-  for (const rc of state.row5.left) ids.push(rc.instanceId);
-  for (const rc of state.row5.right) ids.push(rc.instanceId);
 
   return ids;
 }
@@ -182,16 +182,16 @@ function collectAllAttachmentIds(state: GameState): string[] {
     }
   }
 
+  for (const rc of state.row3.left) {
+    for (const att of rc.attachments) ids.push(att.instanceId);
+  }
+  for (const rc of state.row3.right) {
+    for (const att of rc.attachments) ids.push(att.instanceId);
+  }
   for (const rc of state.row4.left) {
     for (const att of rc.attachments) ids.push(att.instanceId);
   }
   for (const rc of state.row4.right) {
-    for (const att of rc.attachments) ids.push(att.instanceId);
-  }
-  for (const rc of state.row5.left) {
-    for (const att of rc.attachments) ids.push(att.instanceId);
-  }
-  for (const rc of state.row5.right) {
     for (const att of rc.attachments) ids.push(att.instanceId);
   }
 
@@ -207,15 +207,15 @@ describe('Property 9: Equipment Docking Isolation', () => {
         creatureCardArb('creature'),
         equipmentCardArb('equip'),
         (creatureCard: CardData, equipmentCard: CardData) => {
-          // Set up state: creature in creature area, equipment in row4.right (artifacts)
+          // Set up state: creature in creature area, equipment in row3.right (artifacts)
           let state = emptyGameState();
 
           const creatureRowCard = createRowCard(creatureCard, 'creature-1', 0);
           state.creatureArea.rows[0].elements.push(creatureRowCard);
           state.creatureArea.totalElementCount = 1;
 
-          const equipRowCard = createRowCard(equipmentCard, 'row4-artifacts', 0);
-          state.row4.right.push(equipRowCard);
+          const equipRowCard = createRowCard(equipmentCard, 'row3-artifacts', 0);
+          state.row3.right.push(equipRowCard);
 
           // Perform attach
           const newState = attachEquipment(state, equipmentCard.id, creatureCard.id);
@@ -247,9 +247,9 @@ describe('Property 9: Equipment Docking Isolation', () => {
           state.creatureArea.rows[0].elements.push(creatureRowCard);
           state.creatureArea.totalElementCount = 1;
 
-          const equipRowCard1 = createRowCard(equip1, 'row4-artifacts', 0);
-          const equipRowCard2 = createRowCard(equip2, 'row4-artifacts', 1);
-          state.row4.right.push(equipRowCard1, equipRowCard2);
+          const equipRowCard1 = createRowCard(equip1, 'row3-artifacts', 0);
+          const equipRowCard2 = createRowCard(equip2, 'row3-artifacts', 1);
+          state.row3.right.push(equipRowCard1, equipRowCard2);
 
           // Attach both equipment
           let newState = attachEquipment(state, equip1.id, creatureCard.id);
@@ -279,7 +279,7 @@ describe('Property 9: Equipment Docking Isolation', () => {
       fc.property(
         creatureCardArb('creature'),
         equipmentCardArb('equip'),
-        fc.constantFrom('row4-left', 'row4-right', 'row5-left', 'row5-right') as fc.Arbitrary<string>,
+        fc.constantFrom('row3-left', 'row3-right', 'row4-left', 'row4-right') as fc.Arbitrary<string>,
         (creatureCard: CardData, equipmentCard: CardData, startLocation: string) => {
           let state = emptyGameState();
 
@@ -288,19 +288,19 @@ describe('Property 9: Equipment Docking Isolation', () => {
           state.creatureArea.totalElementCount = 1;
 
           // Place equipment in the specified location
-          const equipRowCard = createRowCard(equipmentCard, 'row4-artifacts', 0);
+          const equipRowCard = createRowCard(equipmentCard, 'row3-artifacts', 0);
           switch (startLocation) {
+            case 'row3-left':
+              state.row3.left.push(equipRowCard);
+              break;
+            case 'row3-right':
+              state.row3.right.push(equipRowCard);
+              break;
             case 'row4-left':
               state.row4.left.push(equipRowCard);
               break;
             case 'row4-right':
               state.row4.right.push(equipRowCard);
-              break;
-            case 'row5-left':
-              state.row5.left.push(equipRowCard);
-              break;
-            case 'row5-right':
-              state.row5.right.push(equipRowCard);
               break;
           }
 
@@ -351,7 +351,7 @@ describe('Property 10: Equipment Stat Modifier Additivity', () => {
               isToken: false,
               isTokenCopy: false,
             };
-            return createRowCard(equipCard, 'row4-artifacts', i);
+            return createRowCard(equipCard, 'row3-artifacts', i);
           });
 
           // Calculate effective stats
@@ -405,7 +405,7 @@ describe('Property 10: Equipment Stat Modifier Additivity', () => {
                 isToken: false,
                 isTokenCopy: false,
               };
-              return createRowCard(equipCard, 'row4-artifacts', i);
+              return createRowCard(equipCard, 'row3-artifacts', i);
             });
 
           const originalOrder = makeEquipCards(modifiers);
@@ -470,7 +470,7 @@ describe('Property 10: Equipment Stat Modifier Additivity', () => {
             isToken: false,
             isTokenCopy: false,
           };
-          const equipRowCard = createRowCard(noModEquipCard, 'row4-artifacts', 0);
+          const equipRowCard = createRowCard(noModEquipCard, 'row3-artifacts', 0);
 
           const stats = calculateEffectiveStats(creature, [equipRowCard]);
 

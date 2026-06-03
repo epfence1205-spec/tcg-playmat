@@ -67,7 +67,7 @@ export function attachEquipment(
 /**
  * Detaches an equipment card from a creature and returns it to the battlefield.
  * Equipment is placed back in its appropriate row based on cardType
- * (artifacts → row4-artifacts).
+ * (artifacts → row3-artifacts).
  *
  * Requirements: 9.9, 9.10
  *
@@ -114,34 +114,34 @@ export function detachEquipment(
 
   // Step 2: Determine the target row based on cardType
   const cardType = attachment.card.cardType;
-  let targetRow: 'row4-artifacts' | 'row5-enchantments' | 'row4-artifacts';
+  let targetRow: 'row3-artifacts' | 'row4-enchantments' | 'row3-artifacts';
   switch (cardType) {
     case 'artifact':
-      targetRow = 'row4-artifacts';
+      targetRow = 'row3-artifacts';
       break;
     case 'enchantment':
-      targetRow = 'row5-enchantments';
+      targetRow = 'row4-enchantments';
       break;
     default:
-      // Equipment is typically an artifact subtype; default to row4-artifacts
-      targetRow = 'row4-artifacts';
+      // Equipment is typically an artifact subtype; default to row3-artifacts
+      targetRow = 'row3-artifacts';
       break;
   }
 
   // Step 3: Place equipment back on the battlefield in the appropriate row
-  if (targetRow === 'row4-artifacts') {
+  if (targetRow === 'row3-artifacts') {
+    const positionIndex = newState.row3.right.length;
+    const rowCard = createRowCard(attachment.card, 'row3-artifacts', positionIndex);
+    newState = {
+      ...newState,
+      row3: { ...newState.row3, right: [...newState.row3.right, rowCard] },
+    };
+  } else if (targetRow === 'row4-enchantments') {
     const positionIndex = newState.row4.right.length;
-    const rowCard = createRowCard(attachment.card, 'row4-artifacts', positionIndex);
+    const rowCard = createRowCard(attachment.card, 'row4-enchantments', positionIndex);
     newState = {
       ...newState,
       row4: { ...newState.row4, right: [...newState.row4.right, rowCard] },
-    };
-  } else if (targetRow === 'row5-enchantments') {
-    const positionIndex = newState.row5.right.length;
-    const rowCard = createRowCard(attachment.card, 'row5-enchantments', positionIndex);
-    newState = {
-      ...newState,
-      row5: { ...newState.row5, right: [...newState.row5.right, rowCard] },
     };
   }
 
@@ -152,7 +152,7 @@ export function detachEquipment(
 
 /**
  * Removes a card (by instanceId) from all battlefield row locations.
- * Searches creature area rows, row4, and row5.
+ * Searches creature area rows, row3, and row4.
  */
 function removeEquipmentFromRow(state: GameState, equipmentId: string): GameState {
   // Search and remove from creature area rows
@@ -178,59 +178,59 @@ function removeEquipmentFromRow(state: GameState, equipmentId: string): GameStat
     }
   }
 
-  // Search and remove from row4 left
-  const r4lIdx = state.row4.left.findIndex(
+  // Search and remove from row3 left
+  const r4lIdx = state.row3.left.findIndex(
     (rc) => rc.instanceId === equipmentId
   );
   if (r4lIdx !== -1) {
     const newLeft = [
-      ...state.row4.left.slice(0, r4lIdx),
-      ...state.row4.left.slice(r4lIdx + 1),
+      ...state.row3.left.slice(0, r4lIdx),
+      ...state.row3.left.slice(r4lIdx + 1),
+    ];
+    return { ...state, row3: { ...state.row3, left: newLeft } };
+  }
+
+  // Search and remove from row3 right
+  const r4rIdx = state.row3.right.findIndex(
+    (rc) => rc.instanceId === equipmentId
+  );
+  if (r4rIdx !== -1) {
+    const newRight = [
+      ...state.row3.right.slice(0, r4rIdx),
+      ...state.row3.right.slice(r4rIdx + 1),
+    ];
+    return { ...state, row3: { ...state.row3, right: newRight } };
+  }
+
+  // Search and remove from row4 left
+  const r5lIdx = state.row4.left.findIndex(
+    (rc) => rc.instanceId === equipmentId
+  );
+  if (r5lIdx !== -1) {
+    const newLeft = [
+      ...state.row4.left.slice(0, r5lIdx),
+      ...state.row4.left.slice(r5lIdx + 1),
     ];
     return { ...state, row4: { ...state.row4, left: newLeft } };
   }
 
   // Search and remove from row4 right
-  const r4rIdx = state.row4.right.findIndex(
-    (rc) => rc.instanceId === equipmentId
-  );
-  if (r4rIdx !== -1) {
-    const newRight = [
-      ...state.row4.right.slice(0, r4rIdx),
-      ...state.row4.right.slice(r4rIdx + 1),
-    ];
-    return { ...state, row4: { ...state.row4, right: newRight } };
-  }
-
-  // Search and remove from row5 left
-  const r5lIdx = state.row5.left.findIndex(
-    (rc) => rc.instanceId === equipmentId
-  );
-  if (r5lIdx !== -1) {
-    const newLeft = [
-      ...state.row5.left.slice(0, r5lIdx),
-      ...state.row5.left.slice(r5lIdx + 1),
-    ];
-    return { ...state, row5: { ...state.row5, left: newLeft } };
-  }
-
-  // Search and remove from row5 right
-  const r5rIdx = state.row5.right.findIndex(
+  const r5rIdx = state.row4.right.findIndex(
     (rc) => rc.instanceId === equipmentId
   );
   if (r5rIdx !== -1) {
     const newRight = [
-      ...state.row5.right.slice(0, r5rIdx),
-      ...state.row5.right.slice(r5rIdx + 1),
+      ...state.row4.right.slice(0, r5rIdx),
+      ...state.row4.right.slice(r5rIdx + 1),
     ];
-    return { ...state, row5: { ...state.row5, right: newRight } };
+    return { ...state, row4: { ...state.row4, right: newRight } };
   }
 
   throw new Error(`Equipment ${equipmentId} not found in any row`);
 }
 
 /**
- * Maps over all RowCards on the battlefield (creature area, row4, row5)
+ * Maps over all RowCards on the battlefield (creature area, row3, row4)
  * and applies a transformation function. Returns a new GameState with
  * the transformed cards.
  */
@@ -246,13 +246,13 @@ function mapAllBattlefieldCards(
   return {
     ...state,
     creatureArea: { ...state.creatureArea, rows: newCreatureRows },
+    row3: {
+      left: state.row3.left.map(fn),
+      right: state.row3.right.map(fn),
+    },
     row4: {
       left: state.row4.left.map(fn),
       right: state.row4.right.map(fn),
-    },
-    row5: {
-      left: state.row5.left.map(fn),
-      right: state.row5.right.map(fn),
     },
   };
 }

@@ -89,9 +89,9 @@ function isValidSerializedGameState(data: unknown): data is SerializedGameState 
   if (!Array.isArray(creatureArea.rows)) return false;
   if (typeof creatureArea.totalElementCount !== 'number') return false;
 
-  // Check row4 and row5 (SplitRow)
+  // Check row3 and row4 (SplitRow)
+  if (!isValidSplitRow(obj.row3)) return false;
   if (!isValidSplitRow(obj.row4)) return false;
-  if (!isValidSplitRow(obj.row5)) return false;
 
   // Check off-battlefield zone arrays
   const requiredArrays = ['hand', 'commandZone', 'graveyard', 'library', 'exile'] as const;
@@ -135,8 +135,8 @@ export function createEmptyGameState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],

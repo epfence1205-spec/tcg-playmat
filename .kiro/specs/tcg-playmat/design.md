@@ -19,8 +19,8 @@ graph TD
             subgraph ZoneA ["Zone A — Battlefield (continuous flow)"]
                 CR["Creature Area (3/5 height, 1-3 dynamic rows)"]
                 PWCol["Planeswalker/Battle Column (far-right, conditional — only when present)"]
-                R4["Row 4 (1/5): Basic/mana-only lands left L→R | Artifacts right R→L"]
-                R5["Row 5 (1/5): Utility lands left L→R | Enchantments right R→L"]
+                R4["Row 3 (1/5): Basic/mana-only lands left L→R | Artifacts right R→L"]
+                R5["Row 4 (1/5): Utility lands left L→R | Enchantments right R→L"]
                 HUD["Hand Count HUD — bottom-left"]
             end
             subgraph ZoneB ["Zone B — Sidebar (1 card width, responsive)"]
@@ -185,8 +185,8 @@ interface AppShellProps {
 ```typescript
 interface BattlefieldProps {
   creatureArea: CreatureArea;
-  row4: SplitRow;               // Row 4: Basic/mana-only lands (left, L→R) + Artifacts (right, R→L)
-  row5: SplitRow;               // Row 5: Utility lands (left, L→R) + Enchantments (right, R→L)
+  row3: SplitRow;               // Row 3: Basic/mana-only lands (left, L→R) + Artifacts (right, R→L)
+  row4: SplitRow;               // Row 4: Utility lands (left, L→R) + Enchantments (right, R→L)
   handCount: number;
   gamePhase: GamePhase;
   onDropCard: (cardId: string, targetRow: RowTarget, insertIndex: number) => void;
@@ -197,20 +197,20 @@ interface BattlefieldProps {
 
 interface SplitRow {
   left: RowCard[];              // Lands — builds left-to-right
-  right: RowCard[];             // Artifacts (Row 4) or Enchantments (Row 5) — builds right-to-left
+  right: RowCard[];             // Artifacts (Row 3) or Enchantments (Row 4) — builds right-to-left
 }
 
 type RowTarget =
   | 'creature-1' | 'creature-2' | 'creature-3'
-  | 'row4-lands' | 'row4-artifacts'
-  | 'row5-lands' | 'row5-enchantments'
+  | 'row3-lands' | 'row3-artifacts'
+  | 'row4-lands' | 'row4-enchantments'
   | 'pw-battle-column';
 type GamePhase = 'MULLIGAN' | 'PLAYING';
 ```
 
-**Row 4 & 5 Layout**:
-- **Row 4** (1/5 height): Basic/mana-only lands on the left building L→R, Artifacts on the right building R→L
-- **Row 5** (1/5 height): Utility lands on the left building L→R, Enchantments on the right building R→L
+**Row 3 & 4 Layout**:
+- **Row 3** (1/5 height): Basic/mana-only lands on the left building L→R, Artifacts on the right building R→L
+- **Row 4** (1/5 height): Utility lands on the left building L→R, Enchantments on the right building R→L
 - Both sides grow toward center. The split is soft — if one side needs more space it can expand.
 
 **Planeswalker/Battle Column**:
@@ -222,8 +222,8 @@ type GamePhase = 'MULLIGAN' | 'PLAYING';
 **Responsibilities**:
 - Render dynamic creature area (3/5 of battlefield height) with 1-3 rows
 - Conditionally render planeswalker/battle column on far-right of creature area (only when present)
-- Render Row 4 (1/5 height): basic/mana-only lands left L→R, artifacts right R→L
-- Render Row 5 (1/5 height): utility lands left L→R, enchantments right R→L
+- Render Row 3 (1/5 height): basic/mana-only lands left L→R, artifacts right R→L
+- Render Row 4 (1/5 height): utility lands left L→R, enchantments right R→L
 - Cards within rows flow with smooth transitions (`transition-all duration-300 ease-in-out`)
 - Same-name cards auto-fan with 95% horizontal overlap
 - Accept card drops and insert at correct position within row
@@ -696,8 +696,8 @@ interface GameState {
 
   // Battlefield — continuous flow rows
   creatureArea: CreatureArea;
-  row4: SplitRow;               // Lands (left) + Artifacts (right)
-  row5: SplitRow;               // Lands (left) + Enchantments (right)
+  row3: SplitRow;               // Lands (left) + Artifacts (right)
+  row4: SplitRow;               // Lands (left) + Enchantments (right)
 
   // Off-battlefield zones
   hand: CardData[];
@@ -936,10 +936,10 @@ function softReset(state: GameState): GameState {
     ...state.creatureArea.rows.flatMap(r =>
       r.elements.flatMap(el => [el.card, ...el.attachments.map(a => a.card)])
     ),
+    ...state.row3.left.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
+    ...state.row3.right.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
     ...state.row4.left.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
     ...state.row4.right.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
-    ...state.row5.left.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
-    ...state.row5.right.flatMap(el => [el.card, ...el.attachments.map(a => a.card)]),
     ...state.commandZone,
     ...state.graveyard,
     ...state.library,
@@ -953,8 +953,8 @@ function softReset(state: GameState): GameState {
   return {
     gamePhase: 'MULLIGAN',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: commanders,
     graveyard: [],
@@ -987,8 +987,8 @@ function untapAll(state: GameState): GameState {
         elements: untapRow(row.elements),
       })),
     },
+    row3: { left: untapRow(state.row3.left), right: untapRow(state.row3.right) },
     row4: { left: untapRow(state.row4.left), right: untapRow(state.row4.right) },
-    row5: { left: untapRow(state.row5.left), right: untapRow(state.row5.right) },
   };
 }
 ```
@@ -1071,7 +1071,7 @@ function untapAll(state: GameState): GameState {
 
 ### Property 13: Mulligan Privacy Invariant
 
-*For any* state where gamePhase === 'MULLIGAN', all battlefield zones (creature rows, row 4, row 5) are empty. The mulligan UI renders exclusively within Zone C. OBS captures only a blank battlefield.
+*For any* state where gamePhase === 'MULLIGAN', all battlefield zones (creature rows, Row 3, Row 4) are empty. The mulligan UI renders exclusively within Zone C. OBS captures only a blank battlefield.
 
 **Validates: Requirements 11.2, 11.3**
 
@@ -1167,7 +1167,7 @@ function untapAll(state: GameState): GameState {
 
 ### Property 29: Card Type Row Assignment
 
-*For any* card placed on the battlefield, its row assignment is determined by card type: creatures go to the Creature_Area, basic/mana-only lands go to Row 4 left, utility lands go to Row 5 left, artifacts go to Row 4 right, enchantments go to Row 5 right, and planeswalkers/battles go to the PW_Battle_Column.
+*For any* card placed on the battlefield, its row assignment is determined by card type: creatures go to the Creature_Area, basic/mana-only lands go to Row 3 left, utility lands go to Row 4 left, artifacts go to Row 3 right, enchantments go to Row 4 right, and planeswalkers/battles go to the PW_Battle_Column.
 
 **Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 

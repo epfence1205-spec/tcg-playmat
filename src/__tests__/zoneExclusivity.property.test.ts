@@ -127,8 +127,8 @@ function emptyGameState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -186,16 +186,16 @@ const gameStateArb: fc.Arbitrary<GameState> = fc
             state.creatureArea.totalElementCount++;
           }
           break;
-        case 6: // row4
+        case 6: // row3
           {
-            const rowCard = makeRowCard(card, 'row4-lands', state.row4.left.length);
-            state.row4.left.push(rowCard);
+            const rowCard = makeRowCard(card, 'row3-lands', state.row3.left.length);
+            state.row3.left.push(rowCard);
           }
           break;
-        case 7: // row5
+        case 7: // row4
           {
-            const rowCard = makeRowCard(card, 'row5-enchantments', state.row5.right.length);
-            state.row5.right.push(rowCard);
+            const rowCard = makeRowCard(card, 'row4-enchantments', state.row4.right.length);
+            state.row4.right.push(rowCard);
           }
           break;
       }
@@ -248,6 +248,20 @@ function collectAllCardIds(state: GameState): string[] {
     }
   }
 
+  // Battlefield: row3
+  for (const rc of state.row3.left) {
+    ids.push(rc.card.id);
+    for (const att of rc.attachments) {
+      ids.push(att.card.id);
+    }
+  }
+  for (const rc of state.row3.right) {
+    ids.push(rc.card.id);
+    for (const att of rc.attachments) {
+      ids.push(att.card.id);
+    }
+  }
+
   // Battlefield: row4
   for (const rc of state.row4.left) {
     ids.push(rc.card.id);
@@ -256,20 +270,6 @@ function collectAllCardIds(state: GameState): string[] {
     }
   }
   for (const rc of state.row4.right) {
-    ids.push(rc.card.id);
-    for (const att of rc.attachments) {
-      ids.push(att.card.id);
-    }
-  }
-
-  // Battlefield: row5
-  for (const rc of state.row5.left) {
-    ids.push(rc.card.id);
-    for (const att of rc.attachments) {
-      ids.push(att.card.id);
-    }
-  }
-  for (const rc of state.row5.right) {
     ids.push(rc.card.id);
     for (const att of rc.attachments) {
       ids.push(att.card.id);
@@ -453,10 +453,10 @@ describe('Property 2: Card Count Conservation', () => {
       fc.property(
         gameStateArb.filter(
           (s) => s.creatureArea.rows.some((r) => r.elements.length > 0) ||
+                 s.row3.left.length > 0 ||
+                 s.row3.right.length > 0 ||
                  s.row4.left.length > 0 ||
-                 s.row4.right.length > 0 ||
-                 s.row5.left.length > 0 ||
-                 s.row5.right.length > 0
+                 s.row4.right.length > 0
         ),
         (state: GameState) => {
           // Find a card on the battlefield

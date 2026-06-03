@@ -95,8 +95,8 @@ function makePreMulliganState(library: CardData[]): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -129,22 +129,22 @@ function totalCardCount(state: GameState): number {
     }
   }
 
+  // Battlefield: row3
+  for (const rc of state.row3.left) {
+    count++;
+    count += rc.attachments.length;
+  }
+  for (const rc of state.row3.right) {
+    count++;
+    count += rc.attachments.length;
+  }
+
   // Battlefield: row4
   for (const rc of state.row4.left) {
     count++;
     count += rc.attachments.length;
   }
   for (const rc of state.row4.right) {
-    count++;
-    count += rc.attachments.length;
-  }
-
-  // Battlefield: row5
-  for (const rc of state.row5.left) {
-    count++;
-    count += rc.attachments.length;
-  }
-  for (const rc of state.row5.right) {
     count++;
     count += rc.attachments.length;
   }
@@ -166,11 +166,11 @@ function isBattlefieldEmpty(state: GameState): boolean {
     if (row.elements.length > 0) return false;
   }
 
+  // Row 3
+  if (state.row3.left.length > 0 || state.row3.right.length > 0) return false;
+
   // Row 4
   if (state.row4.left.length > 0 || state.row4.right.length > 0) return false;
-
-  // Row 5
-  if (state.row5.left.length > 0 || state.row5.right.length > 0) return false;
 
   return true;
 }
@@ -447,7 +447,7 @@ describe('Property 13: Mulligan Privacy Invariant', () => {
     );
   });
 
-  it('during MULLIGAN phase, creatureArea, row4, and row5 are all empty', () => {
+  it('during MULLIGAN phase, creatureArea, row3, and row4 are all empty', () => {
     fc.assert(
       fc.property(
         fc.tuple(
@@ -466,10 +466,10 @@ describe('Property 13: Mulligan Privacy Invariant', () => {
           for (const row of current.creatureArea.rows) {
             expect(row.elements).toHaveLength(0);
           }
+          expect(current.row3.left).toHaveLength(0);
+          expect(current.row3.right).toHaveLength(0);
           expect(current.row4.left).toHaveLength(0);
           expect(current.row4.right).toHaveLength(0);
-          expect(current.row5.left).toHaveLength(0);
-          expect(current.row5.right).toHaveLength(0);
         }
       ),
       { numRuns: 100 }

@@ -1,4 +1,5 @@
 import type { CreatureArea, RowCard } from './types';
+import { shouldSplitRows } from './creatureLayout';
 
 /**
  * Counts independent elements in a list of RowCards.
@@ -25,7 +26,12 @@ export function countIndependentElements(elements: RowCard[]): number {
  * @param creatureArea - The current creature area state
  * @returns A new CreatureArea with the correct number of rows (max 2) and updated totalElementCount
  */
-export function recalculateCreatureRows(creatureArea: CreatureArea): CreatureArea {
+export function recalculateCreatureRows(
+  creatureArea: CreatureArea,
+  containerWidthPx: number = 0,
+  vhToPx: number = 10.8,
+  gapPx: number = 4
+): CreatureArea {
   const allElements = creatureArea.rows.flatMap(r => r.elements);
 
   // Separate instants/sorceries from permanents
@@ -36,10 +42,9 @@ export function recalculateCreatureRows(creatureArea: CreatureArea): CreatureAre
     el.card.cardType === 'instant' || el.card.cardType === 'sorcery' || el.card.cardType === 'other'
   );
 
-  const elementCount = countIndependentElements(permanents);
   const totalCount = countIndependentElements(allElements);
 
-  if (elementCount > 14) {
+  if (shouldSplitRows(permanents, containerWidthPx, vhToPx, gapPx)) {
     // Need 2 rows for permanents
     // Check if already split — preserve user arrangement
     const currentRows = creatureArea.rows.map(r => ({

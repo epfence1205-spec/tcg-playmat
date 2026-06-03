@@ -91,11 +91,11 @@ TCG Playmat is a browser-based digital playmat for Magic: The Gathering designed
 
 #### Acceptance Criteria
 
-1. THE Playmat SHALL render Row 4 (1/5 of Zone_A height) as a Split_Row with basic/mana-only lands on the left building left-to-right and artifacts on the right building right-to-left
-2. THE Playmat SHALL render Row 5 (1/5 of Zone_A height) as a Split_Row with utility lands on the left building left-to-right and enchantments on the right building right-to-left
-3. WHEN a land card is placed on the battlefield, THE Playmat SHALL assign it to Row 4 left (basic/mana-only) or Row 5 left (utility) based on its type
-4. WHEN an artifact card is placed on the battlefield, THE Playmat SHALL assign it to Row 4 right
-5. WHEN an enchantment card is placed on the battlefield, THE Playmat SHALL assign it to Row 5 right
+1. THE Playmat SHALL render Row 3 (1/5 of Zone_A height) as a Split_Row with basic/mana-only lands on the left building left-to-right and artifacts on the right building right-to-left
+2. THE Playmat SHALL render Row 4 (1/5 of Zone_A height) as a Split_Row with utility lands on the left building left-to-right and enchantments on the right building right-to-left
+3. WHEN a land card is placed on the battlefield, THE Playmat SHALL assign it to Row 3 left (basic/mana-only) or Row 4 left (utility) based on its type
+4. WHEN an artifact card is placed on the battlefield, THE Playmat SHALL assign it to Row 3 right
+5. WHEN an enchantment card is placed on the battlefield, THE Playmat SHALL assign it to Row 4 right
 6. WHEN both sides of a Split_Row grow toward center, THE Playmat SHALL allow the split to be soft so that one side can expand if it needs more space
 
 ### Requirement 7: Planeswalker and Battle Column

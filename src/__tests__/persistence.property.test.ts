@@ -58,8 +58,8 @@ const counterTypeArb: fc.Arbitrary<CounterType> = fc.constantFrom(
 
 const rowTargetArb: fc.Arbitrary<RowTarget> = fc.constantFrom(
   'creature-1', 'creature-2', 'creature-3',
-  'row4-lands', 'row4-artifacts',
-  'row5-lands', 'row5-enchantments',
+  'row3-lands', 'row3-artifacts',
+  'row4-lands', 'row4-enchantments',
   'pw-battle-column'
 );
 
@@ -163,8 +163,8 @@ const mulliganStateArb: fc.Arbitrary<MulliganState> = fc
 const gameStateArb: fc.Arbitrary<GameState> = fc.record({
   gamePhase: fc.constantFrom('MULLIGAN' as const, 'PLAYING' as const),
   creatureArea: creatureAreaArb,
+  row3: splitRowArb,
   row4: splitRowArb,
-  row5: splitRowArb,
   hand: fc.array(cardDataArb, { minLength: 0, maxLength: 7 }),
   commandZone: fc.array(cardDataArb, { minLength: 0, maxLength: 2 }),
   graveyard: fc.array(cardDataArb, { minLength: 0, maxLength: 5 }),
@@ -341,8 +341,8 @@ describe('Property 32: Corrupted State Recovery', () => {
         // We verify it never throws and always returns a valid GameState shape.
         expect(result.gamePhase).toBeDefined();
         expect(result.creatureArea).toBeDefined();
+        expect(result.row3).toBeDefined();
         expect(result.row4).toBeDefined();
-        expect(result.row5).toBeDefined();
         expect(Array.isArray(result.hand)).toBe(true);
         expect(Array.isArray(result.library)).toBe(true);
         expect(typeof result.deckLoaded).toBe('boolean');
@@ -394,8 +394,8 @@ describe('Property 32: Corrupted State Recovery', () => {
       fc.constant(JSON.stringify({
         gamePhase: 'PLAYING',
         creatureArea: { rows: 'not-array', totalElementCount: 0 },
+        row3: { left: [], right: [] },
         row4: { left: [], right: [] },
-        row5: { left: [], right: [] },
         hand: [], commandZone: [], graveyard: [], library: [], exile: [],
         mulliganState: null, deckLoaded: false, lifeTotal: 40,
       })),

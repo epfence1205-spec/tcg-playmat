@@ -84,8 +84,8 @@ const gameStateArb: fc.Arbitrary<GameState> = fc
   .map(([hand, commandZone, graveyard, library, exile]) => ({
     gamePhase: 'PLAYING' as const,
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand,
     commandZone,
     graveyard,
@@ -229,10 +229,10 @@ describe('Property 16: Invalid Drop No-Op', () => {
             state.library.length +
             state.exile.length +
             state.creatureArea.rows.reduce((sum, r) => sum + r.elements.length, 0) +
+            state.row3.left.length +
+            state.row3.right.length +
             state.row4.left.length +
-            state.row4.right.length +
-            state.row5.left.length +
-            state.row5.right.length;
+            state.row4.right.length;
 
           // Attempt multiple invalid operations
           const invalidOps = [
@@ -253,10 +253,10 @@ describe('Property 16: Invalid Drop No-Op', () => {
             state.library.length +
             state.exile.length +
             state.creatureArea.rows.reduce((sum, r) => sum + r.elements.length, 0) +
+            state.row3.left.length +
+            state.row3.right.length +
             state.row4.left.length +
-            state.row4.right.length +
-            state.row5.left.length +
-            state.row5.right.length;
+            state.row4.right.length;
 
           expect(totalAfter).toBe(totalBefore);
         }

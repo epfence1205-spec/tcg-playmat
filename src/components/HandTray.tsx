@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -196,6 +196,11 @@ export function HandTray({
 
   // Track which card index is hovered for fan spread effect
   const [hoveredHandIndex, setHoveredHandIndex] = useState<number | null>(null);
+
+  // Clear fan lift when hand size changes (card played/drawn without mouse movement)
+  useEffect(() => {
+    setHoveredHandIndex(null);
+  }, [cards.length]);
 
   // ─── MULLIGAN Phase Rendering ────────────────────────────────────────────
 

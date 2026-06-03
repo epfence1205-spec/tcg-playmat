@@ -46,10 +46,10 @@ function makeRowCard(id: string, overrides?: Partial<RowCard>): RowCard {
 /** Helper to create a base game state with the new structure */
 function createTestState(overrides?: {
   creatureCards?: RowCard[];
+  row3Left?: RowCard[];
+  row3Right?: RowCard[];
   row4Left?: RowCard[];
   row4Right?: RowCard[];
-  row5Left?: RowCard[];
-  row5Right?: RowCard[];
   hand?: CardData[];
   commandZone?: CardData[];
   graveyard?: CardData[];
@@ -63,8 +63,8 @@ function createTestState(overrides?: {
       rows: [{ id: 'creature-1', elements: creatureCards }],
       totalElementCount: creatureCards.length,
     },
+    row3: { left: overrides?.row3Left ?? [], right: overrides?.row3Right ?? [] },
     row4: { left: overrides?.row4Left ?? [], right: overrides?.row4Right ?? [] },
-    row5: { left: overrides?.row5Left ?? [], right: overrides?.row5Right ?? [] },
     hand: overrides?.hand ?? [],
     commandZone: overrides?.commandZone ?? [],
     graveyard: overrides?.graveyard ?? [],

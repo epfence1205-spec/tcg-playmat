@@ -306,10 +306,10 @@ describe('importDeckToGameState', () => {
 
     // All battlefield zones should be empty
     expect(state.creatureArea.rows[0].elements).toHaveLength(0);
+    expect(state.row3.left).toHaveLength(0);
+    expect(state.row3.right).toHaveLength(0);
     expect(state.row4.left).toHaveLength(0);
     expect(state.row4.right).toHaveLength(0);
-    expect(state.row5.left).toHaveLength(0);
-    expect(state.row5.right).toHaveLength(0);
     expect(state.hand).toHaveLength(0);
     expect(state.graveyard).toHaveLength(0);
     expect(state.exile).toHaveLength(0);

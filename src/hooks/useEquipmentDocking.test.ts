@@ -36,7 +36,7 @@ function makeRowCard(overrides: Partial<RowCard> = {}): RowCard {
   return {
     card,
     instanceId: card.id,
-    rowAssignment: 'row4-artifacts',
+    rowAssignment: 'row3-artifacts',
     positionIndex: 0,
     isTapped: false,
     isFaceDown: false,
@@ -56,8 +56,8 @@ function makeEmptyGameState(): GameState {
       rows: [{ id: 'creature-1', elements: [] }],
       totalElementCount: 0,
     },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -120,7 +120,7 @@ describe('isDockableCard', () => {
 describe('findAttachedCreatureId', () => {
   it('returns null when equipment is not attached to any creature', () => {
     const state = makeEmptyGameState();
-    state.row4.right = [makeRowCard()];
+    state.row3.right = [makeRowCard()];
     expect(findAttachedCreatureId(state, 'card-1')).toBeNull();
   });
 
@@ -155,7 +155,7 @@ describe('findAttachedCreatureId', () => {
     expect(findAttachedCreatureId(state, 'nonexistent')).toBeNull();
   });
 
-  it('finds attachment in row4', () => {
+  it('finds attachment in row3', () => {
     const equipCard = makeCardData({ id: 'equip-2', name: 'Shield' });
     const hostCard = makeCardData({
       id: 'host-1',
@@ -167,14 +167,14 @@ describe('findAttachedCreatureId', () => {
     const host = makeRowCard({
       card: hostCard,
       instanceId: 'host-1',
-      rowAssignment: 'row4-artifacts',
+      rowAssignment: 'row3-artifacts',
       attachments: [
         { card: equipCard, instanceId: 'equip-2', isTapped: false },
       ],
     });
 
     const state = makeEmptyGameState();
-    state.row4.right = [host];
+    state.row3.right = [host];
 
     expect(findAttachedCreatureId(state, 'equip-2')).toBe('host-1');
   });

@@ -4,7 +4,7 @@ import type { GameState, CounterType, Counter } from './types';
 
 /**
  * Updates a RowCard's counters array anywhere on the battlefield.
- * Searches creature area rows, row4, and row5 for the card by instanceId,
+ * Searches creature area rows, row3, and row4 for the card by instanceId,
  * then applies the updater function to its counters.
  * Returns the original state if the card is not found.
  */
@@ -30,6 +30,26 @@ function updateCardCounters(
     }
   }
 
+  // Search row3 left
+  if (state.row3.left.some(rc => rc.instanceId === cardId)) {
+    const newLeft = state.row3.left.map(rc =>
+      rc.instanceId === cardId
+        ? { ...rc, counters: updater(rc.counters) }
+        : rc
+    );
+    return { ...state, row3: { ...state.row3, left: newLeft } };
+  }
+
+  // Search row3 right
+  if (state.row3.right.some(rc => rc.instanceId === cardId)) {
+    const newRight = state.row3.right.map(rc =>
+      rc.instanceId === cardId
+        ? { ...rc, counters: updater(rc.counters) }
+        : rc
+    );
+    return { ...state, row3: { ...state.row3, right: newRight } };
+  }
+
   // Search row4 left
   if (state.row4.left.some(rc => rc.instanceId === cardId)) {
     const newLeft = state.row4.left.map(rc =>
@@ -48,26 +68,6 @@ function updateCardCounters(
         : rc
     );
     return { ...state, row4: { ...state.row4, right: newRight } };
-  }
-
-  // Search row5 left
-  if (state.row5.left.some(rc => rc.instanceId === cardId)) {
-    const newLeft = state.row5.left.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row5: { ...state.row5, left: newLeft } };
-  }
-
-  // Search row5 right
-  if (state.row5.right.some(rc => rc.instanceId === cardId)) {
-    const newRight = state.row5.right.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row5: { ...state.row5, right: newRight } };
   }
 
   // Card not found on battlefield — no-op

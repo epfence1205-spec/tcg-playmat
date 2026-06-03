@@ -104,10 +104,10 @@ export type RowTarget =
   | 'creature-1'
   | 'creature-2'
   | 'creature-3'
+  | 'row3-lands'
+  | 'row3-artifacts'
   | 'row4-lands'
-  | 'row4-artifacts'
-  | 'row5-lands'
-  | 'row5-enchantments'
+  | 'row4-enchantments'
   | 'pw-battle-column';
 
 /**
@@ -246,12 +246,12 @@ export interface CreatureArea {
 
 /**
  * A row divided into left and right sections that grow toward center.
- * Used for Row 4 (lands + artifacts) and Row 5 (lands + enchantments).
+ * Used for Row 3 (lands + artifacts) and Row 4 (lands + enchantments).
  */
 export interface SplitRow {
   /** Left side — lands building left-to-right */
   left: RowCard[];
-  /** Right side — artifacts (Row 4) or enchantments (Row 5) building right-to-left */
+  /** Right side — artifacts (Row 3) or enchantments (Row 4) building right-to-left */
   right: RowCard[];
 }
 
@@ -331,10 +331,10 @@ export interface GameState {
   // Battlefield — continuous flow rows
   /** Creature area with 1-3 dynamic rows (3/5 of battlefield height) */
   creatureArea: CreatureArea;
-  /** Row 4: basic/mana-only lands (left) + artifacts (right) */
+  /** Row 3: basic/mana-only lands (left) + artifacts (right) */
+  row3: SplitRow;
+  /** Row 4: utility lands (left) + enchantments (right) */
   row4: SplitRow;
-  /** Row 5: utility lands (left) + enchantments (right) */
-  row5: SplitRow;
 
   // Off-battlefield zones
   /** Cards in the player's hand (hidden from OBS in Zone C) */

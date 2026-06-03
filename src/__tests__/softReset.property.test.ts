@@ -198,8 +198,8 @@ function emptyGameState(): GameState {
   return {
     gamePhase: 'PLAYING',
     creatureArea: { rows: [{ id: 'creature-1', elements: [] }], totalElementCount: 0 },
+    row3: { left: [], right: [] },
     row4: { left: [], right: [] },
-    row5: { left: [], right: [] },
     hand: [],
     commandZone: [],
     graveyard: [],
@@ -298,22 +298,22 @@ function distributeCard(
         state.creatureArea.totalElementCount++;
       }
       break;
-    case 6: // row4
+    case 6: // row3
       {
-        const rowCard = makeRowCard(card, 'row4-lands', state.row4.left.length, {
+        const rowCard = makeRowCard(card, 'row3-lands', state.row3.left.length, {
           isTapped,
           counters,
         });
-        state.row4.left.push(rowCard);
+        state.row3.left.push(rowCard);
       }
       break;
-    case 7: // row5
+    case 7: // row4
       {
-        const rowCard = makeRowCard(card, 'row5-enchantments', state.row5.right.length, {
+        const rowCard = makeRowCard(card, 'row4-enchantments', state.row4.right.length, {
           isTapped,
           counters,
         });
-        state.row5.right.push(rowCard);
+        state.row4.right.push(rowCard);
       }
       break;
   }
@@ -401,6 +401,20 @@ function collectAllCards(state: GameState): CardData[] {
     }
   }
 
+  // Battlefield: row3
+  for (const rc of state.row3.left) {
+    cards.push(rc.card);
+    for (const att of rc.attachments) {
+      cards.push(att.card);
+    }
+  }
+  for (const rc of state.row3.right) {
+    cards.push(rc.card);
+    for (const att of rc.attachments) {
+      cards.push(att.card);
+    }
+  }
+
   // Battlefield: row4
   for (const rc of state.row4.left) {
     cards.push(rc.card);
@@ -409,20 +423,6 @@ function collectAllCards(state: GameState): CardData[] {
     }
   }
   for (const rc of state.row4.right) {
-    cards.push(rc.card);
-    for (const att of rc.attachments) {
-      cards.push(att.card);
-    }
-  }
-
-  // Battlefield: row5
-  for (const rc of state.row5.left) {
-    cards.push(rc.card);
-    for (const att of rc.attachments) {
-      cards.push(att.card);
-    }
-  }
-  for (const rc of state.row5.right) {
     cards.push(rc.card);
     for (const att of rc.attachments) {
       cards.push(att.card);
@@ -467,7 +467,7 @@ describe('Property 5: Soft Reset Correctness', () => {
     );
   });
 
-  it('after softReset, hand, battlefield (creatureArea, row4, row5), graveyard, exile are all empty', () => {
+  it('after softReset, hand, battlefield (creatureArea, row3, row4), graveyard, exile are all empty', () => {
     fc.assert(
       fc.property(gameStateWithCommandersArb, (state: GameState) => {
         const result = softReset(state);
@@ -480,13 +480,13 @@ describe('Property 5: Soft Reset Correctness', () => {
           expect(row.elements).toHaveLength(0);
         }
 
-        // Row4 is empty
+        // row3 is empty
+        expect(result.row3.left).toHaveLength(0);
+        expect(result.row3.right).toHaveLength(0);
+
+        // row4 is empty
         expect(result.row4.left).toHaveLength(0);
         expect(result.row4.right).toHaveLength(0);
-
-        // Row5 is empty
-        expect(result.row5.left).toHaveLength(0);
-        expect(result.row5.right).toHaveLength(0);
 
         // Graveyard is empty
         expect(result.graveyard).toHaveLength(0);
@@ -534,10 +534,10 @@ describe('Property 5: Soft Reset Correctness', () => {
         for (const row of result.creatureArea.rows) {
           expect(row.elements).toHaveLength(0);
         }
+        expect(result.row3.left).toHaveLength(0);
+        expect(result.row3.right).toHaveLength(0);
         expect(result.row4.left).toHaveLength(0);
         expect(result.row4.right).toHaveLength(0);
-        expect(result.row5.left).toHaveLength(0);
-        expect(result.row5.right).toHaveLength(0);
 
         // Verify total card count is preserved (attachments are collected too)
         const allOriginalCards = collectAllCards(state);
