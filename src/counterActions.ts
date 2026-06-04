@@ -1,4 +1,5 @@
 import type { GameState, CounterType, Counter } from './types';
+import { updateBattlefieldCard } from './gameActions';
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
@@ -13,65 +14,7 @@ function updateCardCounters(
   cardId: string,
   updater: (counters: Counter[]) => Counter[]
 ): GameState {
-  // Search creature area rows
-  for (let i = 0; i < state.creatureArea.rows.length; i++) {
-    const row = state.creatureArea.rows[i];
-    const idx = row.elements.findIndex(rc => rc.instanceId === cardId);
-    if (idx !== -1) {
-      const newElements = row.elements.map(rc =>
-        rc.instanceId === cardId
-          ? { ...rc, counters: updater(rc.counters) }
-          : rc
-      );
-      const newRows = state.creatureArea.rows.map((r, ri) =>
-        ri === i ? { ...r, elements: newElements } : r
-      );
-      return { ...state, creatureArea: { ...state.creatureArea, rows: newRows } };
-    }
-  }
-
-  // Search row3 left
-  if (state.row3.left.some(rc => rc.instanceId === cardId)) {
-    const newLeft = state.row3.left.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row3: { ...state.row3, left: newLeft } };
-  }
-
-  // Search row3 right
-  if (state.row3.right.some(rc => rc.instanceId === cardId)) {
-    const newRight = state.row3.right.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row3: { ...state.row3, right: newRight } };
-  }
-
-  // Search row4 left
-  if (state.row4.left.some(rc => rc.instanceId === cardId)) {
-    const newLeft = state.row4.left.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row4: { ...state.row4, left: newLeft } };
-  }
-
-  // Search row4 right
-  if (state.row4.right.some(rc => rc.instanceId === cardId)) {
-    const newRight = state.row4.right.map(rc =>
-      rc.instanceId === cardId
-        ? { ...rc, counters: updater(rc.counters) }
-        : rc
-    );
-    return { ...state, row4: { ...state.row4, right: newRight } };
-  }
-
-  // Card not found on battlefield — no-op
-  return state;
+  return updateBattlefieldCard(state, cardId, rc => ({ ...rc, counters: updater(rc.counters) }));
 }
 
 // ─── Counter Actions ─────────────────────────────────────────────────────────

@@ -69,3 +69,8 @@
 - **Creature row rebalancing** — When split into 2 rows, prefer moving a card to row 2 over compressing row 1 if row 2 has room to spare
 - **Cross-container insertion gaps** — Show visual gap/insertion indicator when dragging cards between rows or from other zones to a specific position within a row (requires custom collision detection beyond @dnd-kit/sortable's single-context limitation)
 - **Command zone stack behavior** — Show only top commander card, Alt+click to fan out for partner commanders (match library/graveyard/exile stack pattern instead of current flex-wrap layout)
+- **Enchant land auras** — Allow auras with "Enchant land" to attach to lands in rows 3/4 (currently only creatures are valid dock targets)
+- **Mutate** — Support mutate mechanic (stack creature cards, share abilities/P+T modifications)
+- **Browse graveyard/exile** — Searchable modal for graveyard and exile (like Library Browser) with move-to-zone actions
+- **Turn counter** — Track current turn number, increment on Next Turn (N key)
+- **Life counter** — Track life total with +/- buttons, keyboard shortcuts, and visible HUD display

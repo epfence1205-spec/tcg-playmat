@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { CardData, Counter, GameState, KeywordAbility, Zone } from '../types';
+import { getAllBattlefieldCards } from '../gameActions';
 
 export interface HoveredCardData {
   card: CardData | null;
@@ -38,11 +39,7 @@ export function useHoveredCard(gameState: GameState) {
     const zone = cardEl.getAttribute('data-card-zone') as Zone;
 
     if (zone === 'battlefield') {
-      const allBf = [
-        ...gameState.creatureArea.rows.flatMap(r => r.elements),
-        ...gameState.row3.left, ...gameState.row3.right,
-        ...gameState.row4.left, ...gameState.row4.right,
-      ];
+      const allBf = getAllBattlefieldCards(gameState);
       const found = allBf.find(rc => rc.instanceId === cardId);
       if (found) {
         setHoveredCardData({ card: found.card, keywords: found.card.keywords, counters: found.counters, attachments: found.attachments.map(a => a.card), zone });

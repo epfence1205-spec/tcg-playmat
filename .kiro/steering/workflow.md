@@ -13,3 +13,9 @@
 6. **Don't monologue.** Keep responses short. The user is a competent architect who doesn't need explanations of basic concepts.
 
 7. **Don't ignore repeated instructions.** If the user says the same thing twice, I failed the first time. Stop, re-read their instruction, and do exactly what they said.
+
+# Refactoring Thresholds
+
+- **3+ repetitions** — extract to a shared function
+- **2 repetitions** — only extract if 10+ lines AND likely to be reused again
+- **Under 5 lines** — leave inline regardless of repetition count

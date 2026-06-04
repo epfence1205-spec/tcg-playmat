@@ -9,6 +9,7 @@ import type {
 } from './types';
 import type { TokenDefinition } from './api/tokenResolver';
 import { recalculateCreatureRows } from './creatureRows';
+import { getRowCards, setRowCards } from './sortableHelpers';
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
@@ -94,6 +95,20 @@ export function findCardOnBattlefield(
     }
   }
 
+  return null;
+}
+
+/**
+ * Finds which zone a card is currently in by searching all zones.
+ * Returns the zone name or null if not found anywhere.
+ */
+export function findCardZone(state: GameState, cardId: string): Zone | null {
+  if (findCardOnBattlefield(state, cardId)) return 'battlefield';
+  if (state.hand.some(c => c.id === cardId)) return 'hand';
+  if (state.graveyard.some(c => c.id === cardId)) return 'graveyard';
+  if (state.commandZone.some(c => c.id === cardId)) return 'commandZone';
+  if (state.library.some(c => c.id === cardId)) return 'library';
+  if (state.exile.some(ec => ec.card.id === cardId)) return 'exile';
   return null;
 }
 
@@ -222,7 +237,7 @@ function removeCardFromBattlefield(
   state: GameState,
   cardId: string
 ): { card: CardData; newState: GameState } {
-  // Search creature area rows
+  // Search creature area rows (special: needs recalculateCreatureRows)
   for (let i = 0; i < state.creatureArea.rows.length; i++) {
     const row = state.creatureArea.rows[i];
     const idx = row.elements.findIndex(rc => rc.instanceId === cardId);
@@ -232,16 +247,9 @@ function removeCardFromBattlefield(
       const newRows = state.creatureArea.rows.map((r, ri) =>
         ri === i ? { ...r, elements: newElements } : r
       );
-      const updatedCreatureArea = recalculateCreatureRows({ rows: newRows, totalElementCount: 0 });
-      return {
-        card,
-        newState: {
-          ...state,
-          creatureArea: updatedCreatureArea,
-        },
-      };
+      return { card, newState: { ...state, creatureArea: recalculateCreatureRows({ rows: newRows, totalElementCount: 0 }) } };
     }
-    // Check attachments in creature rows
+    // Check attachments
     for (const rc of row.elements) {
       const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
       if (attIdx !== -1) {
@@ -253,95 +261,33 @@ function removeCardFromBattlefield(
         const newRows = state.creatureArea.rows.map((r, ri) =>
           ri === i ? { ...r, elements: newElements } : r
         );
-        const updatedCreatureArea = recalculateCreatureRows({ rows: newRows, totalElementCount: 0 });
-        return {
-          card,
-          newState: {
-            ...state,
-            creatureArea: updatedCreatureArea,
-          },
-        };
+        return { card, newState: { ...state, creatureArea: recalculateCreatureRows({ rows: newRows, totalElementCount: 0 }) } };
       }
     }
   }
 
-  // Search row3 left
-  const r4lIdx = state.row3.left.findIndex(rc => rc.instanceId === cardId);
-  if (r4lIdx !== -1) {
-    const card = state.row3.left[r4lIdx].card;
-    const newLeft = [...state.row3.left.slice(0, r4lIdx), ...state.row3.left.slice(r4lIdx + 1)];
-    return { card, newState: { ...state, row3: { ...state.row3, left: newLeft } } };
-  }
-  // Search row3 left attachments
-  for (const rc of state.row3.left) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newLeft = state.row3.left.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row3: { ...state.row3, left: newLeft } } };
+  // Search split rows (row3-lands, row3-artifacts, row4-lands, row4-enchantments)
+  const splitRowIds: RowTarget[] = ['row3-lands', 'row3-artifacts', 'row4-lands', 'row4-enchantments'];
+  for (const rowId of splitRowIds) {
+    const cards = getRowCards(state, rowId);
+    // Check main cards
+    const idx = cards.findIndex(rc => rc.instanceId === cardId);
+    if (idx !== -1) {
+      const card = cards[idx].card;
+      const newCards = [...cards.slice(0, idx), ...cards.slice(idx + 1)];
+      return { card, newState: setRowCards(state, rowId, newCards) };
     }
-  }
-
-  // Search row3 right
-  const r4rIdx = state.row3.right.findIndex(rc => rc.instanceId === cardId);
-  if (r4rIdx !== -1) {
-    const card = state.row3.right[r4rIdx].card;
-    const newRight = [...state.row3.right.slice(0, r4rIdx), ...state.row3.right.slice(r4rIdx + 1)];
-    return { card, newState: { ...state, row3: { ...state.row3, right: newRight } } };
-  }
-  // Search row3 right attachments
-  for (const rc of state.row3.right) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newRight = state.row3.right.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row3: { ...state.row3, right: newRight } } };
-    }
-  }
-
-  // Search row4 left
-  const r5lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
-  if (r5lIdx !== -1) {
-    const card = state.row4.left[r5lIdx].card;
-    const newLeft = [...state.row4.left.slice(0, r5lIdx), ...state.row4.left.slice(r5lIdx + 1)];
-    return { card, newState: { ...state, row4: { ...state.row4, left: newLeft } } };
-  }
-  // Search row4 left attachments
-  for (const rc of state.row4.left) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newLeft = state.row4.left.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row4: { ...state.row4, left: newLeft } } };
-    }
-  }
-
-  // Search row4 right
-  const r5rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
-  if (r5rIdx !== -1) {
-    const card = state.row4.right[r5rIdx].card;
-    const newRight = [...state.row4.right.slice(0, r5rIdx), ...state.row4.right.slice(r5rIdx + 1)];
-    return { card, newState: { ...state, row4: { ...state.row4, right: newRight } } };
-  }
-  // Search row4 right attachments
-  for (const rc of state.row4.right) {
-    const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
-    if (attIdx !== -1) {
-      const card = rc.attachments[attIdx].card;
-      const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
-      const newRight = state.row4.right.map(el =>
-        el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
-      );
-      return { card, newState: { ...state, row4: { ...state.row4, right: newRight } } };
+    // Check attachments
+    for (const rc of cards) {
+      const attIdx = rc.attachments.findIndex(a => a.instanceId === cardId);
+      if (attIdx !== -1) {
+        const card = rc.attachments[attIdx].card;
+        const newAttachments = [...rc.attachments.slice(0, attIdx), ...rc.attachments.slice(attIdx + 1)];
+        const newCards = cards.map(el =>
+          el.instanceId === rc.instanceId ? { ...el, attachments: newAttachments } : el
+        );
+        return { card, newState: setRowCards(state, rowId, newCards) };
+      }
     }
   }
 
@@ -613,6 +559,43 @@ export function moveCard(
 }
 
 /**
+ * Finds a RowCard on the battlefield by instanceId and applies an updater function.
+ * Searches creature area rows, row3, and row4.
+ * Returns unchanged state if card not found.
+ */
+export function updateBattlefieldCard(
+  state: GameState,
+  cardId: string,
+  updater: (card: RowCard) => RowCard
+): GameState {
+  // Search creature area rows
+  for (let i = 0; i < state.creatureArea.rows.length; i++) {
+    const row = state.creatureArea.rows[i];
+    if (row.elements.some(rc => rc.instanceId === cardId)) {
+      const newElements = row.elements.map(rc =>
+        rc.instanceId === cardId ? updater(rc) : rc
+      );
+      const newRows = state.creatureArea.rows.map((r, ri) =>
+        ri === i ? { ...r, elements: newElements } : r
+      );
+      return { ...state, creatureArea: { ...state.creatureArea, rows: newRows } };
+    }
+  }
+
+  // Search split rows
+  const splitRowIds: RowTarget[] = ['row3-lands', 'row3-artifacts', 'row4-lands', 'row4-enchantments'];
+  for (const rowId of splitRowIds) {
+    const cards = getRowCards(state, rowId);
+    if (cards.some(rc => rc.instanceId === cardId)) {
+      const newCards = cards.map(rc => rc.instanceId === cardId ? updater(rc) : rc);
+      return setRowCards(state, rowId, newCards);
+    }
+  }
+
+  return state;
+}
+
+/**
  * Toggles the tapped state of a card on the battlefield.
  * Searches all battlefield locations (creature rows, row3, row4).
  *
@@ -624,54 +607,9 @@ export function moveCard(
  * - Tapped card renders rotated 90° clockwise
  */
 export function tapCard(state: GameState, cardId: string): GameState {
-  // Search creature area
-  for (let i = 0; i < state.creatureArea.rows.length; i++) {
-    const row = state.creatureArea.rows[i];
-    const idx = row.elements.findIndex(rc => rc.instanceId === cardId);
-    if (idx !== -1) {
-      const newElements = row.elements.map(rc =>
-        rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-      );
-      const newRows = state.creatureArea.rows.map((r, ri) =>
-        ri === i ? { ...r, elements: newElements } : r
-      );
-      return { ...state, creatureArea: { ...state.creatureArea, rows: newRows } };
-    }
-  }
-
-  // Search row3
-  const r4lIdx = state.row3.left.findIndex(rc => rc.instanceId === cardId);
-  if (r4lIdx !== -1) {
-    const newLeft = state.row3.left.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row3: { ...state.row3, left: newLeft } };
-  }
-  const r4rIdx = state.row3.right.findIndex(rc => rc.instanceId === cardId);
-  if (r4rIdx !== -1) {
-    const newRight = state.row3.right.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row3: { ...state.row3, right: newRight } };
-  }
-
-  // Search row4
-  const r5lIdx = state.row4.left.findIndex(rc => rc.instanceId === cardId);
-  if (r5lIdx !== -1) {
-    const newLeft = state.row4.left.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row4: { ...state.row4, left: newLeft } };
-  }
-  const r5rIdx = state.row4.right.findIndex(rc => rc.instanceId === cardId);
-  if (r5rIdx !== -1) {
-    const newRight = state.row4.right.map(rc =>
-      rc.instanceId === cardId ? { ...rc, isTapped: !rc.isTapped } : rc
-    );
-    return { ...state, row4: { ...state.row4, right: newRight } };
-  }
-
-  throw new Error(`Card ${cardId} not found on battlefield`);
+  const result = updateBattlefieldCard(state, cardId, rc => ({ ...rc, isTapped: !rc.isTapped }));
+  if (result === state) throw new Error(`Card ${cardId} not found on battlefield`);
+  return result;
 }
 
 /**

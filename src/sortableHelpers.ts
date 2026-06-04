@@ -1,5 +1,6 @@
 import { arrayMove } from '@dnd-kit/sortable';
 import type { GameState, RowCard, RowTarget, Attachment } from './types';
+import { getAllBattlefieldCards } from './gameActions';
 
 /**
  * Checks whether a given cardId is currently attached as equipment/aura
@@ -8,13 +9,7 @@ import type { GameState, RowCard, RowTarget, Attachment } from './types';
  * Requirements: 6.7, 6.8, 6.9
  */
 export function isAttachedEquipment(cardId: string, state: GameState): boolean {
-  const allBattlefieldCards = [
-    ...state.creatureArea.rows.flatMap(r => r.elements),
-    ...state.row3.left,
-    ...state.row3.right,
-    ...state.row4.left,
-    ...state.row4.right,
-  ];
+  const allBattlefieldCards = getAllBattlefieldCards(state);
   return allBattlefieldCards.some(rc =>
     rc.attachments.some(a => a.instanceId === cardId)
   );
@@ -30,13 +25,7 @@ export function findParentCreature(
   equipmentId: string,
   state: GameState
 ): string | undefined {
-  const allBattlefieldCards = [
-    ...state.creatureArea.rows.flatMap(r => r.elements),
-    ...state.row3.left,
-    ...state.row3.right,
-    ...state.row4.left,
-    ...state.row4.right,
-  ];
+  const allBattlefieldCards = getAllBattlefieldCards(state);
   const parent = allBattlefieldCards.find(rc =>
     rc.attachments.some(a => a.instanceId === equipmentId)
   );
@@ -172,13 +161,7 @@ export function reattachEquipment(
   targetCreatureId: string
 ): GameState {
   // Step 1: Find the equipment attachment on the source creature
-  const allCards = [
-    ...state.creatureArea.rows.flatMap(r => r.elements),
-    ...state.row3.left,
-    ...state.row3.right,
-    ...state.row4.left,
-    ...state.row4.right,
-  ];
+  const allCards = getAllBattlefieldCards(state);
   const sourceCreature = allCards.find(
     rc => rc.instanceId === sourceCreatureId
   );
