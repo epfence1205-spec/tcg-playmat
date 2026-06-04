@@ -591,22 +591,18 @@ function SplitRowTrack({
 
   useEffect(() => {
     if (left.length <= 1 || leftContainerWidth === 0) { setLeftMargin(0); return; }
-    const containerWidth = leftContainerWidth - 16;
-    const vh = window.innerHeight / 100;
-    const cardWidth = 11.43 * vh;
-    const totalNeeded = left.length * cardWidth + (left.length - 1) * 4;
-    if (totalNeeded <= containerWidth) { setLeftMargin(0); }
-    else { setLeftMargin((totalNeeded - containerWidth) / (left.length - 1)); }
+    const availableWidth = leftContainerWidth - 16;
+    const vhToPx = window.innerHeight / 100;
+    const margin = computeCompression(left, availableWidth, vhToPx, 4);
+    setLeftMargin(margin);
   }, [left, leftContainerWidth]);
 
   useEffect(() => {
     if (right.length <= 1 || rightContainerWidth === 0) { setRightMargin(0); return; }
-    const containerWidth = rightContainerWidth - 16;
-    const vh = window.innerHeight / 100;
-    const cardWidth = 11.43 * vh;
-    const totalNeeded = right.length * cardWidth + (right.length - 1) * 4;
-    if (totalNeeded <= containerWidth) { setRightMargin(0); }
-    else { setRightMargin((totalNeeded - containerWidth) / (right.length - 1)); }
+    const availableWidth = rightContainerWidth - 16;
+    const vhToPx = window.innerHeight / 100;
+    const margin = computeCompression(right, availableWidth, vhToPx, 4);
+    setRightMargin(margin);
   }, [right, rightContainerWidth]);
 
   return (
@@ -664,7 +660,7 @@ function SplitRowTrack({
       <div
         ref={setRightRef}
         className={`
-          flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
+          flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
           ${isOverRight ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
         `}
         data-testid={`row-track-${rightRowId}`}

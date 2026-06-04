@@ -16,8 +16,23 @@ import type { RowCard } from './types';
  * @returns Width in vh units
  */
 export function computeOuterDivWidthVh(isTapped: boolean, attachmentCount: number): number {
-  // Width is only determined by attachment count — tap displacement is handled by the outer sortable wrapper
   void isTapped;
+  return 11.43 + attachmentCount * 2;
+}
+
+/**
+ * Compute the sortable wrapper width in viewport-height units.
+ * This is the actual horizontal footprint used for layout and compression.
+ *
+ * - Tapped: 16vh (card height becomes the horizontal footprint)
+ * - Untapped: 11.43vh + 2vh per attachment
+ *
+ * @param isTapped - Whether the card is currently tapped
+ * @param attachmentCount - Number of equipment/aura cards attached
+ * @returns Width in vh units
+ */
+export function computeSortableWrapperWidthVh(isTapped: boolean, attachmentCount: number): number {
+  if (isTapped) return 16;
   return 11.43 + attachmentCount * 2;
 }
 
@@ -103,7 +118,7 @@ export function computeCompression(
   if (elements.length <= 1) return 0;
 
   const totalWidthPx = elements.reduce((sum, el) => {
-    const widthVh = computeOuterDivWidthVh(el.isTapped, el.attachments.length);
+    const widthVh = computeSortableWrapperWidthVh(el.isTapped, el.attachments.length);
     return sum + widthVh * vhToPx;
   }, 0);
 

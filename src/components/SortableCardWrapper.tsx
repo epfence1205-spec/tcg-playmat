@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CardType, RowTarget } from '../types';
+import { computeSortableWrapperWidthVh } from '../creatureLayout';
 
 interface SortableCardWrapperProps {
   id: string;              // instanceId — sortable key
@@ -27,7 +28,7 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? (transition || wrapperTransition) : wrapperTransition,
     opacity: isCollapsing ? 0 : isDragging ? 0.3 : 1,
-    width: isCollapsing ? 0 : isTapped ? '16vh' : `${11.43 + attachmentCount * 2}vh`,
+    width: isCollapsing ? 0 : `${computeSortableWrapperWidthVh(isTapped, attachmentCount)}vh`,
     height: isCollapsing ? 0 : '16vh',
     flexShrink: 0,
     display: 'flex',
@@ -35,6 +36,7 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
     justifyContent: 'center',
     cursor: 'grab',
     overflow: isCollapsing ? 'hidden' : undefined,
+    zIndex: isTapped ? 10 : undefined,
     ...style,
   };
 

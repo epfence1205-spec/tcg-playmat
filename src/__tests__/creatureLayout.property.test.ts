@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { computeOuterDivWidthVh } from '../creatureLayout';
+import { computeOuterDivWidthVh, computeSortableWrapperWidthVh } from '../creatureLayout';
 
 // Feature: creature-tap-equip, Property 1: Outer Div Width Calculation
 
@@ -312,7 +312,7 @@ describe('Property 4: Compression Formula', () => {
 
           // Manually compute expected
           const totalWidthPx = elements.reduce((sum, el) => {
-            const w = computeOuterDivWidthVh(el.isTapped, el.attachments.length);
+            const w = computeSortableWrapperWidthVh(el.isTapped, el.attachments.length);
             return sum + w * vhToPx;
           }, 0);
           const totalGaps = (cardCount - 1) * gapPx;
