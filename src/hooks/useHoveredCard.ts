@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { CardData, Counter, GameState, KeywordAbility, Zone } from '../types';
-import { findCardOnBattlefield } from '../gameActions';
 
 export interface HoveredCardData {
   card: CardData | null;
@@ -29,88 +28,42 @@ export function useHoveredCard(gameState: GameState) {
       return;
     }
 
-    // Find the closest card element (has aria-label with "in <zone>" or data-card-zone)
-    const cardEl = el.closest('[aria-label]') as HTMLElement | null;
-    const libraryEl = el.closest('[data-card-zone="library"]') as HTMLElement | null;
-
-    if (libraryEl && gameState.library.length > 0) {
-      const top = gameState.library[0];
-      setHoveredCardData({ card: top, keywords: top.keywords, counters: [], attachments: [], zone: 'library' });
-      return;
-    }
-
+    const cardEl = el.closest('[data-card-id]') as HTMLElement | null;
     if (!cardEl) {
       setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null });
       return;
     }
 
-    const label = cardEl.getAttribute('aria-label') ?? '';
-
-    // Match "CardName in zone" pattern
-    let match = label.match(/^(.+) in (battlefield|hand|commandZone|graveyard|exile|library)$/);
-    if (!match) {
-      // Check for face-down or library
-      if (label === 'Face-down card' || label.includes('Library')) {
-        // Library card-back — resolve top card
-        if (gameState.library.length > 0) {
-          const top = gameState.library[0];
-          setHoveredCardData({ card: top, keywords: top.keywords, counters: [], attachments: [], zone: 'library' });
-          return;
-        }
-      }
-      setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null });
-      return;
-    }
-
-    const cardName = match[1];
-    const zone = match[2] as Zone;
+    const cardId = cardEl.getAttribute('data-card-id')!;
+    const zone = cardEl.getAttribute('data-card-zone') as Zone;
 
     if (zone === 'battlefield') {
-      // Search all battlefield cards by name
       const allBf = [
         ...gameState.creatureArea.rows.flatMap(r => r.elements),
         ...gameState.row3.left, ...gameState.row3.right,
         ...gameState.row4.left, ...gameState.row4.right,
       ];
-      const found = allBf.find(rc => rc.card.name === cardName);
+      const found = allBf.find(rc => rc.instanceId === cardId);
       if (found) {
-        setHoveredCardData({
-          card: found.card,
-          keywords: found.card.keywords,
-          counters: found.counters,
-          attachments: found.attachments.map(a => a.card),
-          zone: 'battlefield',
-        });
+        setHoveredCardData({ card: found.card, keywords: found.card.keywords, counters: found.counters, attachments: found.attachments.map(a => a.card), zone });
         return;
       }
     } else if (zone === 'hand') {
-      const card = gameState.hand.find(c => c.name === cardName);
-      if (card) {
-        setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone: 'hand' });
-        return;
-      }
+      const card = gameState.hand.find(c => c.id === cardId);
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
     } else if (zone === 'commandZone') {
-      const card = gameState.commandZone.find(c => c.name === cardName);
-      if (card) {
-        setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone: 'commandZone' });
-        return;
-      }
+      const card = gameState.commandZone.find(c => c.id === cardId);
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
     } else if (zone === 'graveyard') {
-      const card = gameState.graveyard.find(c => c.name === cardName);
-      if (card) {
-        setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone: 'graveyard' });
-        return;
-      }
+      const card = gameState.graveyard.find(c => c.id === cardId);
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
     } else if (zone === 'exile') {
-      const ec = gameState.exile.find(e => e.card.name === cardName);
-      if (ec) {
-        setHoveredCardData({ card: ec.card, keywords: ec.card.keywords, counters: [], attachments: [], zone: 'exile' });
-        return;
-      }
+      const ec = gameState.exile.find(e => e.card.id === cardId);
+      if (ec) { setHoveredCardData({ card: ec.card, keywords: ec.card.keywords, counters: [], attachments: [], zone }); return; }
     } else if (zone === 'library') {
       if (gameState.library.length > 0) {
         const top = gameState.library[0];
-        setHoveredCardData({ card: top, keywords: top.keywords, counters: [], attachments: [], zone: 'library' });
+        setHoveredCardData({ card: top, keywords: top.keywords, counters: [], attachments: [], zone });
         return;
       }
     }

@@ -159,6 +159,7 @@ function LibrarySection({
           <div
             className="relative"
             style={{ width: '11.43vh', height: '16vh' }}
+            data-card-id={topCardId}
             data-card-zone="library"
             onMouseEnter={() => { isHoveredRef.current = true; topCardId && onHoverStart?.(topCardId, 'library'); }}
             onMouseLeave={() => { isHoveredRef.current = false; topCardId && onHoverEnd?.(topCardId); }}

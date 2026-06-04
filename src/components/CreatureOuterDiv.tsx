@@ -77,6 +77,9 @@ export function CreatureOuterDiv({
       style={outerStyle}
       onClick={handleClick}
       className="flex-shrink-0"
+      data-card-id={creature.instanceId}
+      data-card-zone="battlefield"
+      aria-label={creature.isFaceDown ? 'Face-down card' : `${creature.card.name} in battlefield`}
     >
       {!isFannedOut && creature.attachments.map((attachment, index) => (
         <div

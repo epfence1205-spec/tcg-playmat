@@ -159,6 +159,8 @@ function SortableHandCard({ card, index, total, hoveredIndex, isCollapsing, onCl
       onMouseLeave={() => onHoverEnd?.(card.id)}
       title={card.name}
       role="button"
+      data-card-id={card.id}
+      data-card-zone="hand"
       aria-label={`${card.name} in hand`}
     >
       <img

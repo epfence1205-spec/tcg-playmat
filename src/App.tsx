@@ -185,38 +185,40 @@ function AppContent() {
         {
           const cardId = action.cardId
           const dest = action.destination
-          const isOnBattlefield = !!findCardOnBattlefield(gameState, cardId)
-          const isInHand = gameState.hand.some(c => c.id === cardId)
 
-          if (isOnBattlefield || isInHand) {
-            // Animate collapse, then move
-            setCollapsingIds(prev => new Set(prev).add(cardId))
-            setTimeout(() => {
-              setCollapsingIds(prev => { const n = new Set(prev); n.delete(cardId); return n; })
-              setGameState((prev: GameState) => {
-                try {
-                  // Detect source zone from current state (not stale closure)
-                  let sourceZone: Zone = 'battlefield'
-                  if (prev.hand.some(c => c.id === cardId)) sourceZone = 'hand'
-                  else if (!findCardOnBattlefield(prev, cardId)) return prev
-                  return moveCard(prev, cardId, sourceZone, dest)
-                } catch { return prev }
-              })
-            }, 200)
-          } else {
-            // Other zones: move instantly
-            setGameState((prev: GameState) => {
-              try {
-                let sourceZone: Zone | null = null
-                if (prev.graveyard.some(c => c.id === cardId)) sourceZone = 'graveyard'
-                else if (prev.commandZone.some(c => c.id === cardId)) sourceZone = 'commandZone'
-                else if (prev.library.some(c => c.id === cardId)) sourceZone = 'library'
-                else if (prev.exile.some(ec => ec.card.id === cardId)) sourceZone = 'exile'
-                if (!sourceZone || sourceZone === dest) return prev
-                return moveCard(prev, cardId, sourceZone, dest)
-              } catch { return prev }
-            })
-          }
+          // Always use fresh state inside updater — never rely on stale gameState closure
+          setGameState((prev: GameState) => {
+            try {
+              const onBattlefield = !!findCardOnBattlefield(prev, cardId)
+              const inHand = prev.hand.some(c => c.id === cardId)
+
+              if (onBattlefield || inHand) {
+                // Animate collapse, then move after 200ms
+                setCollapsingIds(s => new Set(s).add(cardId))
+                setTimeout(() => {
+                  setCollapsingIds(s => { const n = new Set(s); n.delete(cardId); return n; })
+                  setGameState((fresh: GameState) => {
+                    try {
+                      let sourceZone: Zone = 'battlefield'
+                      if (fresh.hand.some(c => c.id === cardId)) sourceZone = 'hand'
+                      else if (!findCardOnBattlefield(fresh, cardId)) return fresh
+                      return moveCard(fresh, cardId, sourceZone, dest)
+                    } catch { return fresh }
+                  })
+                }, 200)
+                return prev // Don't change state yet — collapse animates first
+              }
+
+              // Other zones: move instantly
+              let sourceZone: Zone | null = null
+              if (prev.graveyard.some(c => c.id === cardId)) sourceZone = 'graveyard'
+              else if (prev.commandZone.some(c => c.id === cardId)) sourceZone = 'commandZone'
+              else if (prev.library.some(c => c.id === cardId)) sourceZone = 'library'
+              else if (prev.exile.some(ec => ec.card.id === cardId)) sourceZone = 'exile'
+              if (!sourceZone || sourceZone === dest) return prev
+              return moveCard(prev, cardId, sourceZone, dest)
+            } catch { return prev }
+          })
         }
         break
       case 'QUICK_PLAY':

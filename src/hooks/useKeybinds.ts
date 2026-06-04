@@ -154,6 +154,7 @@ export function useKeybinds({
         // ─── Card Movement Keys ─────────────────────────────────────────
         case 'b':
           e.preventDefault();
+          console.log('B pressed, hoveredCardId:', hoveredCardId, 'hoveredZone:', hoveredZone);
           if (hoveredCardId) {
             dispatchCardAction({ type: 'MOVE_CARD', cardId: hoveredCardId, destination: 'battlefield' });
           }

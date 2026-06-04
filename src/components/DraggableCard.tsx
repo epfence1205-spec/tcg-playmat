@@ -120,6 +120,8 @@ export function DraggableCard({
       onMouseLeave={() => onHoverEnd?.(card.id)}
       title={isFaceDown ? 'Face-down card' : card.name}
       role="button"
+      data-card-id={card.id}
+      data-card-zone={sourceZone}
       aria-label={isFaceDown ? 'Face-down card' : `${card.name} in ${sourceZone}`}
       aria-grabbed={isDragging}
     >
