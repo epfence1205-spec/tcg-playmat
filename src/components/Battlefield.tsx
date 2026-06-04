@@ -266,6 +266,8 @@ export interface BattlefieldProps {
   onEquipmentAction?: (action: EquipmentAction) => void;
   /** Called when the creature area container resizes (width in vh) */
   onCreatureAreaResize?: (widthVh: number) => void;
+  /** Set of card instanceIds currently animating collapse before removal */
+  collapsingIds?: Set<string>;
   /** Optional children rendered as overlays (e.g., toolbar buttons) */
   children?: React.ReactNode;
 }
@@ -298,6 +300,7 @@ export function Battlefield({
   onCardHoverEnd,
   onEquipmentAction,
   onCreatureAreaResize,
+  collapsingIds,
   children,
 }: BattlefieldProps) {
   // Suppress unused variable warnings for handlers used by DnD context
@@ -365,6 +368,7 @@ export function Battlefield({
                   onCardHoverStart={onCardHoverStart}
                   onCardHoverEnd={onCardHoverEnd}
                   onEquipmentAction={onEquipmentAction}
+                  collapsingIds={collapsingIds}
                 />
               ))}
             </div>
@@ -387,6 +391,7 @@ export function Battlefield({
             onCardHoverStart={onCardHoverStart}
             onCardHoverEnd={onCardHoverEnd}
             onEquipmentAction={onEquipmentAction}
+            collapsingIds={collapsingIds}
           />
 
           {/* Row 4 — 1/5 (20%) of battlefield height */}
@@ -401,6 +406,7 @@ export function Battlefield({
             onCardHoverStart={onCardHoverStart}
             onCardHoverEnd={onCardHoverEnd}
             onEquipmentAction={onEquipmentAction}
+            collapsingIds={collapsingIds}
           />
         </>
       )}
@@ -430,6 +436,7 @@ interface RowTrackProps {
   onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
   onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
+  collapsingIds?: Set<string>;
 }
 
 /**
@@ -437,7 +444,7 @@ interface RowTrackProps {
  * Cards compress (overlap) as the row fills up so everything always fits visible.
  * Supports drag-to-reorder within the row via @dnd-kit/sortable.
  */
-function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction }: RowTrackProps) {
+function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction, collapsingIds }: RowTrackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [negativeMargin, setNegativeMargin] = useState(0);
   const { setNodeRef, isOver } = useDroppable({
@@ -497,6 +504,7 @@ function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd
             rowId={rowId}
             isTapped={el.isTapped}
             attachmentCount={el.attachments.length}
+            isCollapsing={collapsingIds?.has(el.instanceId)}
             style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
           >
             <CreatureOuterDiv
@@ -527,6 +535,7 @@ interface SplitRowTrackProps {
   onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
   onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
+  collapsingIds?: Set<string>;
 }
 
 /**
@@ -544,6 +553,7 @@ function SplitRowTrack({
   onCardHoverStart,
   onCardHoverEnd,
   onEquipmentAction,
+  collapsingIds,
 }: SplitRowTrackProps) {
   const leftContainerRef = useRef<HTMLDivElement>(null);
   const rightContainerRef = useRef<HTMLDivElement>(null);
@@ -663,6 +673,7 @@ function SplitRowTrack({
                 rowId={leftRowId}
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
+                isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
               >
                 <DroppableCardSlot
@@ -710,6 +721,7 @@ function SplitRowTrack({
                 rowId={rightRowId}
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
+                isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
               >
                 <DroppableCardSlot

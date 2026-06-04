@@ -1,5 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useState, useRef } from 'react';
 import type { RowCard, Zone, KeywordAbility } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
@@ -32,21 +31,6 @@ export function CreatureOuterDiv({
   const [isFannedOut, setIsFannedOut] = useState(false);
   const [fanPosition, setFanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const outerRef = useRef<HTMLDivElement>(null);
-
-  const { setNodeRef, isOver } = useDroppable({
-    id: `card-drop-${creature.instanceId}`,
-    data: {
-      cardId: creature.instanceId,
-      cardName: creature.card.name,
-      sourceZone: 'battlefield' as const,
-      cardType: creature.card.cardType,
-    },
-  });
-
-  const combinedRef = useCallback((node: HTMLDivElement | null) => {
-    setNodeRef(node);
-    (outerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-  }, [setNodeRef]);
 
   const grantedKeywords: KeywordAbility[] = [];
   for (const att of creature.attachments) {
@@ -89,10 +73,10 @@ export function CreatureOuterDiv({
 
   return (
     <div
-      ref={combinedRef}
+      ref={outerRef}
       style={outerStyle}
       onClick={handleClick}
-      className={`flex-shrink-0 ${isOver ? 'ring-2 ring-yellow-400 rounded-md' : ''}`}
+      className="flex-shrink-0"
     >
       {!isFannedOut && creature.attachments.map((attachment, index) => (
         <div
@@ -114,7 +98,12 @@ export function CreatureOuterDiv({
 
       {/* Creature wrapper — z-index N, contains card + all overlays */}
       <div style={{ position: 'absolute', left: `${N * 2}vh`, top: 0, width: '11.43vh', height: '16vh', zIndex: N }}>
-        <DraggableCard card={creature.card} sourceZone="battlefield" disableDrag={true} isTapped={false} isFaceDown={creature.isFaceDown} showingBackFace={creature.showingBackFace} onHoverStart={onCardHoverStart} onHoverEnd={onCardHoverEnd} className="!z-0" />
+        <img
+          src={creature.isFaceDown ? '/card-back.webp' : creature.showingBackFace && creature.card.backFaceImageURI ? creature.card.backFaceImageURI : creature.card.imageURI}
+          alt={creature.isFaceDown ? 'Face-down card' : creature.card.name}
+          className="w-full h-full rounded-md pointer-events-none object-cover !z-0"
+          draggable={false}
+        />
 
         {/* Overlays — static z-2, always above creature card image */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>

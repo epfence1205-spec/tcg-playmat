@@ -49,6 +49,9 @@ function AppContent() {
   // Drag state for DragOverlay
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
+  // Cards animating collapse before zone change
+  const [collapsingIds, setCollapsingIds] = useState<Set<string>>(new Set())
+
   // Equip mode: when set, next click on a creature attaches this equipment
   const [equipModeCardId, setEquipModeCardId] = useState<string | null>(null)
 
@@ -179,28 +182,59 @@ function AppContent() {
         setEquipModeCardId(action.cardId)
         break
       case 'MOVE_CARD':
-        setGameState((prev: GameState) => {
-          try {
-            const cardId = action.cardId
-            let sourceZone: Zone = 'battlefield'
-            if (prev.hand.some(c => c.id === cardId)) sourceZone = 'hand'
-            else if (prev.graveyard.some(c => c.id === cardId)) sourceZone = 'graveyard'
-            else if (prev.commandZone.some(c => c.id === cardId)) sourceZone = 'commandZone'
-            else if (prev.library.some(c => c.id === cardId)) sourceZone = 'library'
-            else if (prev.exile.some(ec => ec.card.id === cardId)) sourceZone = 'exile'
-            if (sourceZone === action.destination) return prev
-            return moveCard(prev, cardId, sourceZone, action.destination)
+        {
+          const cardId = action.cardId
+          const dest = action.destination
+          const isOnBattlefield = !!findCardOnBattlefield(gameState, cardId)
+          const isInHand = gameState.hand.some(c => c.id === cardId)
+
+          if (isOnBattlefield || isInHand) {
+            // Animate collapse, then move
+            setCollapsingIds(prev => new Set(prev).add(cardId))
+            setTimeout(() => {
+              setCollapsingIds(prev => { const n = new Set(prev); n.delete(cardId); return n; })
+              setGameState((prev: GameState) => {
+                try {
+                  // Detect source zone from current state (not stale closure)
+                  let sourceZone: Zone = 'battlefield'
+                  if (prev.hand.some(c => c.id === cardId)) sourceZone = 'hand'
+                  else if (!findCardOnBattlefield(prev, cardId)) return prev
+                  return moveCard(prev, cardId, sourceZone, dest)
+                } catch { return prev }
+              })
+            }, 200)
+          } else {
+            // Other zones: move instantly
+            setGameState((prev: GameState) => {
+              try {
+                let sourceZone: Zone | null = null
+                if (prev.graveyard.some(c => c.id === cardId)) sourceZone = 'graveyard'
+                else if (prev.commandZone.some(c => c.id === cardId)) sourceZone = 'commandZone'
+                else if (prev.library.some(c => c.id === cardId)) sourceZone = 'library'
+                else if (prev.exile.some(ec => ec.card.id === cardId)) sourceZone = 'exile'
+                if (!sourceZone || sourceZone === dest) return prev
+                return moveCard(prev, cardId, sourceZone, dest)
+              } catch { return prev }
+            })
           }
-          catch { return prev }
-        })
+        }
         break
       case 'QUICK_PLAY':
-        setGameState((prev: GameState) => {
-          const card = prev.hand[action.handIndex]
-          if (!card) return prev
-          try { return moveCard(prev, card.id, 'hand', 'battlefield') }
-          catch { return prev }
-        })
+        {
+          const card = gameState.hand[action.handIndex]
+          if (!card) break
+          const quickPlayId = card.id
+          setCollapsingIds(prev => new Set(prev).add(quickPlayId))
+          setTimeout(() => {
+            setCollapsingIds(prev => { const n = new Set(prev); n.delete(quickPlayId); return n; })
+            setGameState((prev: GameState) => {
+              const c = prev.hand.find(h => h.id === quickPlayId)
+              if (!c) return prev
+              try { return moveCard(prev, quickPlayId, 'hand', 'battlefield') }
+              catch { return prev }
+            })
+          }, 200)
+        }
         break
       case 'PEEK':
         // Peek at top N cards of library
@@ -583,7 +617,7 @@ function AppContent() {
       if (!parentId) return
 
       // Drop on different creature → re-equip
-      if (overId.startsWith('card-drop-') && overData?.cardType === 'creature' && overData?.cardId !== parentId) {
+      if (overData?.cardType === 'creature' && overData?.cardId !== parentId) {
         setGameState((prev: GameState) => {
           try {
             const detached = detachEquipment(prev, cardId, parentId)
@@ -627,7 +661,7 @@ function AppContent() {
     }
 
     // ─── Priority 2: Equipment/Aura docking (any source zone → creature) ─────────────
-    if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
+    if (overData?.cardType === 'creature' && overData?.sourceZone === 'battlefield') {
       const creatureId = overData.cardId as string
       if (cardId !== creatureId) {
         // Resolve the card's typeLine to check if it's dockable
@@ -727,7 +761,7 @@ function AppContent() {
           return
         }
 
-        if (overId.startsWith('card-drop-') && overData?.cardType === 'creature') {
+        if (overData?.cardType === 'creature' && overData?.sourceZone === 'battlefield') {
           // Drop on another creature → re-equip
           const targetCreatureId = overData.cardId as string
           if (targetCreatureId !== parentOfDragged.instanceId) {
@@ -758,10 +792,10 @@ function AppContent() {
       // ── Priority 3: Same-row reorder ──────────────────────────────────────
       const activeRowId = active.data.current?.rowId as RowTarget | undefined
       let overRowId = over.data.current?.rowId as RowTarget | undefined
-      // If over target is a card droppable (card-drop-{id}), resolve its row from data or lookup
+      // If over target is a sortable card, its data already has rowId
       let overCardId = overId
-      if (!overRowId && overId.startsWith('card-drop-')) {
-        overCardId = overId.replace('card-drop-', '')
+      if (!overRowId && overData?.sourceZone === 'battlefield' && overData?.cardId) {
+        overCardId = overData.cardId as string
         // Find which row this card is in
         for (const row of gameState.creatureArea.rows) {
           if (row.elements.some(rc => rc.instanceId === overCardId)) {
@@ -1113,6 +1147,7 @@ function AppContent() {
           onCardHoverStart={onHoverStart}
           onCardHoverEnd={onHoverEnd}
           onCreatureAreaResize={setCreatureAreaContainerWidthPx}
+          collapsingIds={collapsingIds}
           onEquipmentAction={(action) => {
             if (action.type === 'MOVE_TO') {
               setGameState((prev: GameState) => {
@@ -1178,6 +1213,7 @@ function AppContent() {
           gamePhase={gameState.gamePhase}
           mulliganState={gameState.mulliganState}
           hoveredCard={hoveredCardData.card}
+          collapsingIds={collapsingIds}
           onDragStart={() => {}}
           onToggleReveal={(cardId) => {
             setRevealedCardIds(prev => {

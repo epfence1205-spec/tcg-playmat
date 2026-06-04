@@ -27,6 +27,7 @@ export interface HandTrayProps {
   onDraw: () => void;
   onOpenTokenPanel: () => void;
   deckLoaded: boolean;
+  collapsingIds?: Set<string>;
 }
 
 // ─── Fan Layout Helpers ──────────────────────────────────────────────────────
@@ -83,11 +84,12 @@ function getFanTransform(
  * Also supports cross-container drag (hand → battlefield) since useSortable
  * extends useDraggable. Cards overlap and fan out; hovered card stands upright.
  */
-function SortableHandCard({ card, index, total, hoveredIndex, onClick, onHoverStart, onHoverEnd }: {
+function SortableHandCard({ card, index, total, hoveredIndex, isCollapsing, onClick, onHoverStart, onHoverEnd }: {
   card: CardData;
   index: number;
   total: number;
   hoveredIndex: number | null;
+  isCollapsing?: boolean;
   onClick: () => void;
   onHoverStart?: (cardId: string, zone: 'hand') => void;
   onHoverEnd?: (cardId: string) => void;
@@ -109,9 +111,23 @@ function SortableHandCard({ card, index, total, hoveredIndex, onClick, onHoverSt
   const isHovered = hoveredIndex === index;
 
   // Always use our fan transition for smooth hover; let dnd-kit control only during active drag
-  const fanTransition = 'transform 250ms ease, scale 250ms ease, z-index 0ms';
+  const fanTransition = 'transform 250ms ease, scale 250ms ease, width 200ms ease, opacity 200ms ease, z-index 0ms';
 
-  const style: React.CSSProperties = {
+  const style: React.CSSProperties = isCollapsing ? {
+    transform: combinedTransform,
+    transition: fanTransition,
+    opacity: 0,
+    width: 0,
+    height: '16vh',
+    cursor: 'grab',
+    flexShrink: 0,
+    transformOrigin: 'bottom center',
+    zIndex,
+    marginLeft: 0,
+    margin: 0,
+    overflow: 'hidden',
+    scale: '1',
+  } : {
     transform: combinedTransform,
     transition: isDragging ? (transition || fanTransition) : fanTransition,
     opacity: isDragging ? 0.3 : 1,
@@ -185,6 +201,7 @@ export function HandTray({
   onDraw,
   onOpenTokenPanel,
   deckLoaded,
+  collapsingIds,
 }: HandTrayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -306,6 +323,7 @@ export function HandTray({
                   index={index}
                   total={cards.length}
                   hoveredIndex={hoveredHandIndex}
+                  isCollapsing={collapsingIds?.has(card.id)}
                   onClick={() => onToggleReveal(card.id)}
                   onHoverStart={(cardId, zone) => {
                     setHoveredHandIndex(index);

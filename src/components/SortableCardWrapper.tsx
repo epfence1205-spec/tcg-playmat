@@ -21,9 +21,11 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
     data: { cardId: id, cardName, sourceZone: 'battlefield', cardType, rowId },
   });
 
+  const wrapperTransition = 'transform 200ms ease, width 200ms ease, opacity 200ms ease';
+
   const wrapperStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition: 'transform 200ms ease, width 200ms ease, opacity 200ms ease',
+    transition: wrapperTransition,
     opacity: isCollapsing ? 0 : isDragging ? 0.3 : 1,
     width: isCollapsing ? 0 : isTapped ? '16vh' : `${11.43 + attachmentCount * 2}vh`,
     height: '16vh',
