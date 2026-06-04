@@ -17,10 +17,6 @@ export interface EquipmentDockProps {
   onAction: (action: EquipmentAction) => void;
   /** Called when the creature is clicked (tap) */
   onTapCard?: (cardId: string) => void;
-  /** Called when mouse enters the creature */
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  /** Called when mouse leaves the creature */
-  onCardHoverEnd?: (cardId: string) => void;
 }
 
 /** Cascade offset in vh between each stacked attachment */
@@ -45,8 +41,6 @@ export function EquipmentDock({
   effectiveStats,
   onAction,
   onTapCard,
-  onCardHoverStart,
-  onCardHoverEnd,
 }: EquipmentDockProps) {
   const [isFannedOut, setIsFannedOut] = useState(false);
   const [fanPosition, setFanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -145,8 +139,6 @@ export function EquipmentDock({
           isFaceDown={creature.isFaceDown}
           showingBackFace={creature.showingBackFace}
           onClick={onTapCard}
-          onHoverStart={onCardHoverStart}
-          onHoverEnd={onCardHoverEnd}
         />
 
         {/* Modified P/T overlay */}

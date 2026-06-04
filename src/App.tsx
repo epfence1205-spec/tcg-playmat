@@ -69,7 +69,7 @@ function AppContent() {
   }, [equipModeCardId])
 
   // Hover tracking for HD Zoom Portal
-  const { hoveredCardData, onHoverStart, onHoverEnd } = useHoveredCard(gameState)
+  const { hoveredCardData } = useHoveredCard(gameState)
 
   // Equipment docking via drag
   const { handleEquipmentDrop } = useEquipmentDocking(gameState, setGameState)
@@ -586,11 +586,7 @@ function AppContent() {
   }, [])
 
   const handleDraw = () => {
-    setGameState((prev: GameState) => {
-      if (prev.library.length === 0) return prev
-      const [topCard, ...remainingLibrary] = prev.library
-      return { ...prev, library: remainingLibrary, hand: [...prev.hand, topCard] }
-    })
+    setGameState((prev: GameState) => drawCardAction(prev))
   }
 
   // --- Drag and Drop ---
@@ -1146,8 +1142,6 @@ function AppContent() {
           onTapCard={handleTapCard}
           onAttachEquipment={handleAttachEquipment}
           onMoveWithinRow={handleMoveWithinRow}
-          onCardHoverStart={onHoverStart}
-          onCardHoverEnd={onHoverEnd}
           onCreatureAreaResize={setCreatureAreaContainerWidthPx}
           collapsingIds={collapsingIds}
           onEquipmentAction={(action) => {
@@ -1207,8 +1201,6 @@ function AppContent() {
           })}
           onBrowseLibrary={() => setShowLibraryBrowser(true)}
           onBrowseGraveyard={() => {}}
-          onCardHoverStart={onHoverStart}
-          onCardHoverEnd={onHoverEnd}
         />
         <HandTray
           cards={gameState.hand}
@@ -1225,8 +1217,6 @@ function AppContent() {
               return next
             })
           }}
-          onCardHoverStart={onHoverStart}
-          onCardHoverEnd={onHoverEnd}
           onImportDeck={() => setShowImportModal(true)}
           onNewGame={handleSoftResetClick}
           onDraw={handleDraw}

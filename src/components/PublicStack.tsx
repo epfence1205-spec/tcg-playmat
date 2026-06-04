@@ -1,4 +1,3 @@
-import { useRef, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { CardData, ExileCard, StackZone } from '../types';
 import { DraggableCard } from './DraggableCard';
@@ -62,8 +61,6 @@ export interface PublicStackProps {
   onShuffle: () => void;
   onBrowseLibrary: () => void;
   onBrowseGraveyard: () => void;
-  onCardHoverStart?: (cardId: string, zone: import('../types').Zone) => void;
-  onCardHoverEnd?: (cardId: string) => void;
 }
 
 // ─── Droppable Section Wrapper ───────────────────────────────────────────────
@@ -97,7 +94,7 @@ function DroppableSection({
 // ─── Command Zone Section ────────────────────────────────────────────────────
 
 /** Command Zone section — displays commander cards face-up */
-function CommandZoneSection({ cards, onHoverStart, onHoverEnd }: { cards: CardData[]; onHoverStart?: (cardId: string, zone: import('../types').Zone) => void; onHoverEnd?: (cardId: string) => void }) {
+function CommandZoneSection({ cards }: { cards: CardData[] }) {
   return (
     <DroppableSection id="commandZone" className="flex-1">
       <h3 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide mb-0.5 shrink-0">
@@ -112,8 +109,6 @@ function CommandZoneSection({ cards, onHoverStart, onHoverEnd }: { cards: CardDa
               key={card.id}
               card={card}
               sourceZone="commandZone"
-              onHoverStart={onHoverStart}
-              onHoverEnd={onHoverEnd}
             />
           ))
         )}
@@ -130,24 +125,12 @@ function LibrarySection({
   topCardId,
   onDrawCard,
   onShuffle,
-  onHoverStart,
-  onHoverEnd,
 }: {
   libraryCount: number;
   topCardId: string | null;
   onDrawCard: () => void;
   onShuffle: () => void;
-  onHoverStart?: (cardId: string, zone: import('../types').Zone) => void;
-  onHoverEnd?: (cardId: string) => void;
 }) {
-  const isHoveredRef = useRef(false);
-
-  // Auto-update hover when top card changes while mouse is over library
-  useEffect(() => {
-    if (isHoveredRef.current && topCardId) {
-      onHoverStart?.(topCardId, 'library');
-    }
-  }, [topCardId, onHoverStart]);
 
   return (
     <DroppableSection id="library" className="flex-1">
@@ -161,8 +144,6 @@ function LibrarySection({
             style={{ width: '11.43vh', height: '16vh' }}
             data-card-id={topCardId}
             data-card-zone="library"
-            onMouseEnter={() => { isHoveredRef.current = true; topCardId && onHoverStart?.(topCardId, 'library'); }}
-            onMouseLeave={() => { isHoveredRef.current = false; topCardId && onHoverEnd?.(topCardId); }}
           >
             <img
               src={CARD_BACK_URL}
@@ -206,13 +187,9 @@ function LibrarySection({
 function GraveyardSection({
   cards,
   deliriumCount,
-  onHoverStart,
-  onHoverEnd,
 }: {
   cards: CardData[];
   deliriumCount: number;
-  onHoverStart?: (cardId: string, zone: import('../types').Zone) => void;
-  onHoverEnd?: (cardId: string) => void;
 }) {
   const topCard = cards.length > 0 ? cards[cards.length - 1] : null;
 
@@ -231,8 +208,6 @@ function GraveyardSection({
           <DraggableCard
             card={topCard}
             sourceZone="graveyard"
-            onHoverStart={onHoverStart}
-            onHoverEnd={onHoverEnd}
           />
         ) : (
           <span className="text-gray-500 text-[10px] italic">Empty</span>
@@ -245,7 +220,7 @@ function GraveyardSection({
 // ─── Exile Section ───────────────────────────────────────────────────────────
 
 /** Exile section — top card face-up or face-down with count badge */
-function ExileSection({ cards, onHoverStart, onHoverEnd }: { cards: ExileCard[]; onHoverStart?: (cardId: string, zone: import('../types').Zone) => void; onHoverEnd?: (cardId: string) => void }) {
+function ExileSection({ cards }: { cards: ExileCard[] }) {
   const topExile = cards.length > 0 ? cards[cards.length - 1] : null;
 
   return (
@@ -262,8 +237,6 @@ function ExileSection({ cards, onHoverStart, onHoverEnd }: { cards: ExileCard[];
             card={topExile.card}
             sourceZone="exile"
             isFaceDown={topExile.isFaceDown}
-            onHoverStart={onHoverStart}
-            onHoverEnd={onHoverEnd}
           />
         ) : (
           <span className="text-gray-500 text-[10px] italic">Empty</span>
@@ -295,8 +268,6 @@ export function PublicStack({
   onShuffle,
   onBrowseLibrary: _onBrowseLibrary,
   onBrowseGraveyard: _onBrowseGraveyard,
-  onCardHoverStart,
-  onCardHoverEnd,
 }: PublicStackProps) {
   return (
     <div
@@ -305,17 +276,15 @@ export function PublicStack({
       role="region"
       aria-label="Public stack"
     >
-      <CommandZoneSection cards={commandZone} onHoverStart={onCardHoverStart} onHoverEnd={onCardHoverEnd} />
+      <CommandZoneSection cards={commandZone} />
       <LibrarySection
         libraryCount={libraryCount}
         topCardId={library.length > 0 ? library[0].id : null}
         onDrawCard={onDrawCard}
         onShuffle={onShuffle}
-        onHoverStart={onCardHoverStart}
-        onHoverEnd={onCardHoverEnd}
       />
-      <GraveyardSection cards={graveyard} deliriumCount={deliriumCount} onHoverStart={onCardHoverStart} onHoverEnd={onCardHoverEnd} />
-      <ExileSection cards={exile} onHoverStart={onCardHoverStart} onHoverEnd={onCardHoverEnd} />
+      <GraveyardSection cards={graveyard} deliriumCount={deliriumCount} />
+      <ExileSection cards={exile} />
     </div>
   );
 }

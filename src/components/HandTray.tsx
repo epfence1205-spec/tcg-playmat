@@ -20,8 +20,6 @@ export interface HandTrayProps {
   onDragStart: (cardId: string) => void;
   onToggleReveal: (cardId: string) => void;
   onMulliganAction: (action: MulliganAction) => void;
-  onCardHoverStart?: (cardId: string, zone: 'hand') => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onImportDeck: () => void;
   onNewGame: () => void;
   onDraw: () => void;
@@ -84,15 +82,15 @@ function getFanTransform(
  * Also supports cross-container drag (hand → battlefield) since useSortable
  * extends useDraggable. Cards overlap and fan out; hovered card stands upright.
  */
-function SortableHandCard({ card, index, total, hoveredIndex, isCollapsing, onClick, onHoverStart, onHoverEnd }: {
+function SortableHandCard({ card, index, total, hoveredIndex, isCollapsing, onClick, onMouseEnter, onMouseLeave }: {
   card: CardData;
   index: number;
   total: number;
   hoveredIndex: number | null;
   isCollapsing?: boolean;
   onClick: () => void;
-  onHoverStart?: (cardId: string, zone: 'hand') => void;
-  onHoverEnd?: (cardId: string) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -155,8 +153,8 @@ function SortableHandCard({ card, index, total, hoveredIndex, isCollapsing, onCl
         e.stopPropagation();
         onClick();
       }}
-      onMouseEnter={() => onHoverStart?.(card.id, 'hand')}
-      onMouseLeave={() => onHoverEnd?.(card.id)}
+      onMouseEnter={() => onMouseEnter?.()}
+      onMouseLeave={() => onMouseLeave?.()}
       title={card.name}
       role="button"
       data-card-id={card.id}
@@ -196,8 +194,6 @@ export function HandTray({
   onDragStart: _onDragStart,
   onToggleReveal,
   onMulliganAction,
-  onCardHoverStart,
-  onCardHoverEnd,
   onImportDeck,
   onNewGame,
   onDraw,
@@ -327,14 +323,8 @@ export function HandTray({
                   hoveredIndex={hoveredHandIndex}
                   isCollapsing={collapsingIds?.has(card.id)}
                   onClick={() => onToggleReveal(card.id)}
-                  onHoverStart={(cardId, zone) => {
-                    setHoveredHandIndex(index);
-                    onCardHoverStart?.(cardId, zone);
-                  }}
-                  onHoverEnd={(cardId) => {
-                    setHoveredHandIndex(null);
-                    onCardHoverEnd?.(cardId);
-                  }}
+                  onMouseEnter={() => setHoveredHandIndex(index)}
+                  onMouseLeave={() => setHoveredHandIndex(null)}
                 />
               ))}
             </div>

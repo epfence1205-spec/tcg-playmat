@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import type { RowCard, Zone, KeywordAbility } from '../types';
+import type { RowCard, KeywordAbility } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
 import { calculateEffectiveStats, parseKeywords } from '../keywords';
@@ -11,8 +11,6 @@ export interface CreatureOuterDivProps {
   isCompressed: boolean;
   style?: React.CSSProperties;
   onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: Zone) => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
 }
 
@@ -21,8 +19,6 @@ export function CreatureOuterDiv({
   isCompressed,
   style,
   onTapCard,
-  onCardHoverStart,
-  onCardHoverEnd,
   onEquipmentAction,
 }: CreatureOuterDivProps) {
   const N = creature.attachments.length;

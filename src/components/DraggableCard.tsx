@@ -22,10 +22,6 @@ export interface DraggableCardProps {
   onClick?: (cardId: string) => void;
   /** Optional right-click handler (e.g., for flip) */
   onContextMenu?: (cardId: string) => void;
-  /** Called when mouse enters this card */
-  onHoverStart?: (cardId: string, sourceZone: Zone) => void;
-  /** Called when mouse leaves this card */
-  onHoverEnd?: (cardId: string) => void;
   /** Additional CSS classes */
   className?: string;
 }
@@ -59,8 +55,6 @@ export function DraggableCard({
   disableDrag = false,
   onClick,
   onContextMenu,
-  onHoverStart,
-  onHoverEnd,
   className = '',
 }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -116,8 +110,6 @@ export function DraggableCard({
       }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
-      onMouseEnter={() => onHoverStart?.(card.id, sourceZone)}
-      onMouseLeave={() => onHoverEnd?.(card.id)}
       title={isFaceDown ? 'Face-down card' : card.name}
       role="button"
       data-card-id={card.id}

@@ -86,10 +86,5 @@ export function useHoveredCard(gameState: GameState) {
     return () => document.removeEventListener('mousemove', handler);
   }, [resolveFromPoint]);
 
-  // Keep onHoverStart/onHoverEnd for compatibility (some components still pass them)
-  // but they're no-ops now — everything is driven by elementFromPoint
-  const onHoverStart = useCallback((_cardId: string, _zone: Zone) => {}, []);
-  const onHoverEnd = useCallback((_cardId: string) => {}, []);
-
-  return { hoveredCardData, onHoverStart, onHoverEnd };
+  return { hoveredCardData };
 }

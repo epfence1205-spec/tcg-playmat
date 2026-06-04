@@ -24,11 +24,9 @@ import { calculateEffectiveStats, parseKeywords } from '../keywords';
  * When the card has attachments, renders using EquipmentDock for proper
  * cascade-left layout with sideways name labels.
  */
-function DroppableCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction, style, isCompressed }: {
+function DroppableCardSlot({ el, onTapCard, onEquipmentAction, style, isCompressed }: {
   el: RowCard;
   onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: import('./EquipmentDock').EquipmentAction) => void;
   style?: React.CSSProperties;
   isCompressed?: boolean;
@@ -82,8 +80,6 @@ function DroppableCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, on
           effectiveStats={effectiveStats}
           onAction={(action) => onEquipmentAction?.(action)}
           onTapCard={onTapCard}
-          onCardHoverStart={onCardHoverStart}
-          onCardHoverEnd={onCardHoverEnd}
         />
         {grantedKeywords.length > 0 && (
           <div
@@ -172,8 +168,6 @@ function DroppableCardSlot({ el, onTapCard, onCardHoverStart, onCardHoverEnd, on
           isFaceDown={el.isFaceDown}
           showingBackFace={el.showingBackFace}
           onClick={onTapCard}
-          onHoverStart={onCardHoverStart as ((cardId: string, zone: import('../types').Zone) => void) | undefined}
-          onHoverEnd={onCardHoverEnd}
         />
         {el.counters.length > 0 && (
           <div className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none" style={{ maxWidth: '10vh' }}>
@@ -258,10 +252,6 @@ export interface BattlefieldProps {
   onAttachEquipment: (equipmentId: string, creatureId: string) => void;
   /** Called when a card is reordered within a row */
   onMoveWithinRow: (cardId: string, targetRow: RowTarget, insertIndex: number) => void;
-  /** Called when mouse enters a card */
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  /** Called when mouse leaves a card */
-  onCardHoverEnd?: (cardId: string) => void;
   /** Called when an equipment action is triggered from the fanned-out view */
   onEquipmentAction?: (action: EquipmentAction) => void;
   /** Called when the creature area container resizes (width in vh) */
@@ -296,8 +286,6 @@ export function Battlefield({
   onTapCard,
   onAttachEquipment,
   onMoveWithinRow,
-  onCardHoverStart,
-  onCardHoverEnd,
   onEquipmentAction,
   onCreatureAreaResize,
   collapsingIds,
@@ -365,8 +353,6 @@ export function Battlefield({
                       el.card.cardType !== 'battle'
                   )}
                   onTapCard={onTapCard}
-                  onCardHoverStart={onCardHoverStart}
-                  onCardHoverEnd={onCardHoverEnd}
                   onEquipmentAction={onEquipmentAction}
                   collapsingIds={collapsingIds}
                 />
@@ -375,7 +361,7 @@ export function Battlefield({
 
             {/* Conditional PW/Battle Column — far-right of creature area */}
             {hasPWOrBattles && (
-              <PWBattleColumn cards={pwBattleCards} onTapCard={onTapCard} onCardHoverStart={onCardHoverStart} onCardHoverEnd={onCardHoverEnd} onEquipmentAction={onEquipmentAction} />
+              <PWBattleColumn cards={pwBattleCards} onTapCard={onTapCard} onEquipmentAction={onEquipmentAction} />
             )}
           </div>
 
@@ -388,8 +374,6 @@ export function Battlefield({
             leftLabel="Lands"
             rightLabel="Artifacts"
             onTapCard={onTapCard}
-            onCardHoverStart={onCardHoverStart}
-            onCardHoverEnd={onCardHoverEnd}
             onEquipmentAction={onEquipmentAction}
             collapsingIds={collapsingIds}
           />
@@ -403,8 +387,6 @@ export function Battlefield({
             leftLabel="Utility Lands"
             rightLabel="Enchantments"
             onTapCard={onTapCard}
-            onCardHoverStart={onCardHoverStart}
-            onCardHoverEnd={onCardHoverEnd}
             onEquipmentAction={onEquipmentAction}
             collapsingIds={collapsingIds}
           />
@@ -433,8 +415,6 @@ interface RowTrackProps {
   rowId: RowTarget;
   elements: RowCard[];
   onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
   collapsingIds?: Set<string>;
 }
@@ -444,7 +424,7 @@ interface RowTrackProps {
  * Cards compress (overlap) as the row fills up so everything always fits visible.
  * Supports drag-to-reorder within the row via @dnd-kit/sortable.
  */
-function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction, collapsingIds }: RowTrackProps) {
+function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds }: RowTrackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [negativeMargin, setNegativeMargin] = useState(0);
   const { setNodeRef, isOver } = useDroppable({
@@ -510,8 +490,6 @@ function RowTrack({ rowId, elements, onTapCard, onCardHoverStart, onCardHoverEnd
             <CreatureOuterDiv
               creature={el}
               onTapCard={onTapCard}
-              onCardHoverStart={onCardHoverStart}
-              onCardHoverEnd={onCardHoverEnd}
               onEquipmentAction={onEquipmentAction}
               isCompressed={negativeMargin > 0}
             />
@@ -532,8 +510,6 @@ interface SplitRowTrackProps {
   leftLabel: string;
   rightLabel: string;
   onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
   collapsingIds?: Set<string>;
 }
@@ -550,8 +526,6 @@ function SplitRowTrack({
   leftLabel,
   rightLabel,
   onTapCard,
-  onCardHoverStart,
-  onCardHoverEnd,
   onEquipmentAction,
   collapsingIds,
 }: SplitRowTrackProps) {
@@ -679,8 +653,6 @@ function SplitRowTrack({
                 <DroppableCardSlot
                   el={el}
                   onTapCard={onTapCard}
-                  onCardHoverStart={onCardHoverStart}
-                  onCardHoverEnd={onCardHoverEnd}
                   onEquipmentAction={onEquipmentAction}
                 />
               </SortableCardWrapper>
@@ -727,8 +699,6 @@ function SplitRowTrack({
                 <DroppableCardSlot
                   el={el}
                   onTapCard={onTapCard}
-                  onCardHoverStart={onCardHoverStart}
-                  onCardHoverEnd={onCardHoverEnd}
                   onEquipmentAction={onEquipmentAction}
                 />
               </SortableCardWrapper>
@@ -745,8 +715,6 @@ function SplitRowTrack({
 interface PWBattleColumnProps {
   cards: RowCard[];
   onTapCard: (cardId: string) => void;
-  onCardHoverStart?: (cardId: string, zone: 'battlefield') => void;
-  onCardHoverEnd?: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
 }
 
@@ -755,7 +723,7 @@ interface PWBattleColumnProps {
  * Only rendered when at least one planeswalker or battle is on the battlefield.
  * Stacks cards vertically, justified with creature rows.
  */
-function PWBattleColumn({ cards, onTapCard, onCardHoverStart, onCardHoverEnd, onEquipmentAction }: PWBattleColumnProps) {
+function PWBattleColumn({ cards, onTapCard, onEquipmentAction }: PWBattleColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'row-pw-battle-column',
     data: { rowId: 'pw-battle-column' as RowTarget },
@@ -779,8 +747,6 @@ function PWBattleColumn({ cards, onTapCard, onCardHoverStart, onCardHoverEnd, on
           key={el.instanceId}
           el={el}
           onTapCard={onTapCard}
-          onCardHoverStart={onCardHoverStart}
-          onCardHoverEnd={onCardHoverEnd}
           onEquipmentAction={onEquipmentAction}
         />
       ))}
