@@ -1,5 +1,5 @@
 import type { CreatureArea, RowCard } from './types';
-import { shouldSplitRows } from './creatureLayout';
+import { shouldSplitRows, computeOuterDivWidthVh } from './creatureLayout';
 
 /**
  * Counts independent elements in a list of RowCards.
@@ -93,4 +93,48 @@ export function recalculateCreatureRows(
     rows: [{ id: 'creature-1', elements: permanents }],
     totalElementCount: totalCount,
   };
+}
+
+
+/**
+ * Determines which row a new creature should be added to.
+ * 
+ * Logic:
+ * 1. If only 1 row exists → creature-1 (recalculateCreatureRows handles split)
+ * 2. If 2 rows exist and row 1 would compress with the new card → creature-2
+ * 3. Otherwise → creature-1
+ *
+ * Uses tap-agnostic width (computeOuterDivWidthVh) so tap state doesn't affect routing.
+ *
+ * @param creatureArea - Current creature area state
+ * @param containerWidthPx - Container width in pixels
+ * @param vhToPx - Conversion factor (window.innerHeight / 100)
+ * @param gapPx - Gap between cards in pixels
+ * @returns 'creature-1' or 'creature-2'
+ */
+export function getTargetRowForNewCreature(
+  creatureArea: CreatureArea,
+  containerWidthPx: number,
+  vhToPx: number,
+  gapPx: number = 4
+): 'creature-1' | 'creature-2' {
+  // Only 1 row — always add to row 1 (split logic handles the rest)
+  if (creatureArea.rows.length < 2) return 'creature-1';
+
+  // Get row 1 permanents
+  const row1Elements = creatureArea.rows[0]?.elements.filter(el =>
+    el.card.cardType !== 'instant' && el.card.cardType !== 'sorcery' && el.card.cardType !== 'other'
+  ) ?? [];
+
+  if (containerWidthPx <= 0 || row1Elements.length === 0) return 'creature-1';
+
+  // Would row 1 compress if we added one more standard card (11.43vh)?
+  const currentWidthPx = row1Elements.reduce((sum, el) => {
+    return sum + computeOuterDivWidthVh(el.isTapped, el.attachments.length) * vhToPx;
+  }, 0);
+  const newCardWidthPx = 11.43 * vhToPx;
+  const totalNeeded = currentWidthPx + newCardWidthPx + row1Elements.length * gapPx;
+
+  if (totalNeeded > containerWidthPx) return 'creature-2';
+  return 'creature-1';
 }

@@ -124,14 +124,14 @@ export function CreatureOuterDiv({
           )}
           {isCompressed && (
             <div className="absolute top-0 left-0 h-full flex flex-col items-center justify-center" style={{ width: '2.2vh' }}>
+              <span className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow" style={{ fontSize: '1vh', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minHeight: 0 }}>
+                {creature.showingBackFace && creature.card.backFaceName ? creature.card.backFaceName : creature.card.name}
+              </span>
               {creature.card.cardType === 'creature' && (creature.showingBackFace ? creature.card.backFacePower : creature.card.basePower) != null && (
                 <span className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow" style={{ fontSize: '1.2vh', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', flexShrink: 0 }}>
                   {N > 0 ? `${effectiveStats.modifiedPower}/${effectiveStats.modifiedToughness}` : creature.showingBackFace ? `${creature.card.backFacePower}/${creature.card.backFaceToughness}` : `${creature.card.basePower}/${creature.card.baseToughness}`}
                 </span>
               )}
-              <span className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow" style={{ fontSize: '1vh', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minHeight: 0 }}>
-                {creature.showingBackFace && creature.card.backFaceName ? creature.card.backFaceName : creature.card.name}
-              </span>
             </div>
           )}
           {hasModifiedStats && (

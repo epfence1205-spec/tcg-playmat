@@ -8,7 +8,7 @@ import type {
   Attachment,
 } from './types';
 import type { TokenDefinition } from './api/tokenResolver';
-import { recalculateCreatureRows } from './creatureRows';
+import { recalculateCreatureRows, getTargetRowForNewCreature } from './creatureRows';
 import { getRowCards, setRowCards } from './sortableHelpers';
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
@@ -352,9 +352,15 @@ function getDefaultRowTarget(card: CardData): RowTarget {
 export function addToBattlefield(
   state: GameState,
   card: CardData,
-  targetRow?: RowTarget
+  targetRow?: RowTarget,
+  containerWidthPx?: number,
+  vhToPx?: number
 ): GameState {
-  const row = targetRow ?? getDefaultRowTarget(card);
+  let row = targetRow ?? getDefaultRowTarget(card);
+  // Smart routing: if no explicit target and card is a creature, check if row 1 is at capacity
+  if (!targetRow && card.cardType === 'creature' && containerWidthPx && vhToPx) {
+    row = getTargetRowForNewCreature(state.creatureArea, containerWidthPx, vhToPx);
+  }
   return addRowCardToTarget(state, card, row);
 }
 
@@ -455,7 +461,9 @@ export function moveCard(
   cardId: string,
   from: Zone,
   to: Zone,
-  targetRow?: RowTarget
+  targetRow?: RowTarget,
+  containerWidthPx?: number,
+  vhToPx?: number
 ): GameState {
   if (from === to && to !== 'battlefield') {
     throw new Error(`Cannot move card to the same zone: ${from}`);
@@ -541,7 +549,7 @@ export function moveCard(
 
   // Step 2: Add card to destination zone
   if (to === 'battlefield') {
-    return addToBattlefield(newState, card, targetRow);
+    return addToBattlefield(newState, card, targetRow, containerWidthPx, vhToPx);
   }
 
   if (to === 'exile') {

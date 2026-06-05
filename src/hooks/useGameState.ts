@@ -204,7 +204,7 @@ export function useGameState(onQuotaExceeded?: () => void) {
 
   const addToBattlefield = useCallback(
     (card: CardData, targetRow?: RowTarget) => {
-      updateWithCreatureRecalc((prev) => addToBattlefieldAction(prev, card, targetRow));
+      updateWithCreatureRecalc((prev) => addToBattlefieldAction(prev, card, targetRow, containerWidthPxRef.current, window.innerHeight / 100));
     },
     [updateWithCreatureRecalc]
   );
@@ -316,7 +316,8 @@ export function useGameState(onQuotaExceeded?: () => void) {
     deliriumCount,
     isGameInProgress,
 
-    // Container width setter for width-based row splitting
+    // Container width for width-based row splitting
     setCreatureAreaContainerWidthPx,
+    getCreatureAreaWidthPx: () => containerWidthPxRef.current,
   };
 }

@@ -44,7 +44,7 @@ const dropAnimationConfig: DropAnimation = {
 function AppContent() {
   const { handleQuotaExceeded } = useErrorHandling()
 
-  const { state: gameState, setState: setGameState, undo, setCreatureAreaContainerWidthPx } = useGameState(handleQuotaExceeded)
+  const { state: gameState, setState: setGameState, undo, setCreatureAreaContainerWidthPx, getCreatureAreaWidthPx } = useGameState(handleQuotaExceeded)
 
   // Drag state for DragOverlay
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -174,7 +174,7 @@ function AppContent() {
                     try {
                       const sourceZone = findCardZone(fresh, cardId)
                       if (!sourceZone) return fresh
-                      return moveCard(fresh, cardId, sourceZone, dest)
+                      return moveCard(fresh, cardId, sourceZone, dest, undefined, getCreatureAreaWidthPx(), window.innerHeight / 100)
                     } catch { return fresh }
                   })
                 }, 200)
@@ -184,7 +184,7 @@ function AppContent() {
               // Other zones: move instantly
               const sourceZone = findCardZone(prev, cardId)
               if (!sourceZone || sourceZone === dest) return prev
-              return moveCard(prev, cardId, sourceZone, dest)
+              return moveCard(prev, cardId, sourceZone, dest, undefined, getCreatureAreaWidthPx(), window.innerHeight / 100)
             } catch { return prev }
           })
         }
