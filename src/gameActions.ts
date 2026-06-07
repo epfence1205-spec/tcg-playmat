@@ -915,6 +915,10 @@ export function createTokens(
       baseToughness: tokenDef.toughness,
       cardType: tokenDef.cardType,
       keywords: tokenDef.keywords,
+      cmc: 0,
+      manaCost: '',
+      colorIdentity: [],
+      producedMana: [],
       isToken: true,
       isTokenCopy: false,
     };

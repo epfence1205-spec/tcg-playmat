@@ -14,12 +14,16 @@ export interface ScryfallCard {
   set: string;
   collector_number: string;
   image_uris?: { normal: string; large?: string };
-  card_faces?: Array<{ image_uris?: { normal: string; large?: string }; oracle_text?: string }>;
+  card_faces?: Array<{ image_uris?: { normal: string; large?: string }; oracle_text?: string; mana_cost?: string; name?: string; type_line?: string; power?: string; toughness?: string }>;
   type_line: string;
   oracle_text?: string;
   power?: string;
   toughness?: string;
   keywords?: string[];
+  cmc?: number;
+  mana_cost?: string;
+  color_identity?: string[];
+  produced_mana?: string[];
 }
 
 /** A card identifier for Scryfall's /cards/collection endpoint. */

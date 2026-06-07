@@ -89,6 +89,14 @@ export interface CardData {
   baseToughness: string | null;
   /** Derived from typeLine for row assignment logic */
   cardType: CardType;
+  /** Converted mana cost (mana value) */
+  cmc: number;
+  /** Mana cost string (e.g., "{2}{B}{B}") */
+  manaCost: string;
+  /** Color identity for commander validation */
+  colorIdentity: string[];
+  /** Colors of mana this card can produce (lands) */
+  producedMana: string[];
   /** True if this card is a token (created via Token Panel or token copy) */
   isToken: boolean;
   /** True if this card is a token copy of a non-token card (triggers TOKEN badge) */

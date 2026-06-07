@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import type { CardData, ExileCard, StackZone } from '../types';
 import { DraggableCard } from './DraggableCard';
@@ -93,24 +94,72 @@ function DroppableSection({
 
 // ─── Command Zone Section ────────────────────────────────────────────────────
 
-/** Command Zone section — displays commander cards face-up */
+/** Command Zone section — stacked commanders with Alt+click fan-out */
 function CommandZoneSection({ cards }: { cards: CardData[] }) {
+  const [isFannedOut, setIsFannedOut] = useState(false);
+
+  // Sort by CMC (lowest on top)
+  const sorted = [...cards].sort((a, b) => (a.cmc ?? 0) - (b.cmc ?? 0));
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.altKey && sorted.length > 1) {
+      e.stopPropagation();
+      setIsFannedOut((prev) => !prev);
+    }
+  };
+
   return (
     <DroppableSection id="commandZone" className="flex-1">
       <h3 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide mb-0.5 shrink-0">
         Command Zone
       </h3>
-      <div className="flex flex-wrap gap-0.5 flex-1 items-center justify-center min-h-0">
+      <div className="flex-1 flex items-center justify-center min-h-0">
         {cards.length === 0 ? (
           <span className="text-gray-500 text-[10px] italic">Empty</span>
+        ) : sorted.length === 1 ? (
+          <DraggableCard card={sorted[0]} sourceZone="commandZone" />
         ) : (
-          cards.map((card) => (
-            <DraggableCard
-              key={card.id}
-              card={card}
-              sourceZone="commandZone"
-            />
-          ))
+          <>
+            {/* Stacked view — cascade left like equipment */}
+            <div className="relative cursor-pointer" onClick={handleClick} title="Alt+Click to fan out">
+              {sorted.map((card, index) => (
+                <div
+                  key={card.id}
+                  className="absolute top-0"
+                  style={{
+                    right: `${index * 2}vh`,
+                    zIndex: sorted.length - index,
+                    position: index === 0 ? 'relative' : 'absolute',
+                  }}
+                >
+                  <DraggableCard card={card} sourceZone="commandZone" />
+                </div>
+              ))}
+            </div>
+
+            {/* Fan-out overlay */}
+            {isFannedOut && (
+              <div className="fixed inset-0 z-[9998]" onClick={() => setIsFannedOut(false)}>
+                <div
+                  className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex gap-3 z-[9999] bg-gray-900/95 p-4 rounded-xl shadow-2xl border border-gray-700"
+                  onClick={(e) => e.stopPropagation()}
+                  role="group"
+                  aria-label="Fanned commander cards"
+                >
+                  {sorted.map((card) => (
+                    <div key={card.id} className="flex flex-col items-center gap-1">
+                      <div className="w-[100px] h-[140px]">
+                        <DraggableCard card={card} sourceZone="commandZone" className="w-full h-full" />
+                      </div>
+                      <span className="text-white text-[9px] font-medium text-center truncate max-w-[100px]">
+                        {card.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </DroppableSection>

@@ -58,6 +58,10 @@ export const MOCK_COMMANDER: CardData = {
   keywords: parseKeywords('Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.'),
   isToken: false,
   isTokenCopy: false,
+  cmc: 0,
+  manaCost: '',
+  colorIdentity: [],
+  producedMana: [],
 };
 
 export const MOCK_LIBRARY: CardData[] = [
