@@ -212,7 +212,7 @@ describe('Property 29: Card Type Row Assignment', () => {
     );
   });
 
-  it('land cards are placed in row3-lands', () => {
+  it('land cards with no landCategory are placed in row4-lands', () => {
     fc.assert(
       fc.property(fc.uuid(), (id: string) => {
         const card = makeCardData(id, 'land');
@@ -223,7 +223,7 @@ describe('Property 29: Card Type Row Assignment', () => {
           (rc) => rc.instanceId === card.id
         );
         expect(placed).toBeDefined();
-        expect(placed!.rowAssignment).toBe('row3-lands');
+        expect(placed!.rowAssignment).toBe('row4-lands');
       }),
       { numRuns: 200 }
     );
@@ -315,7 +315,7 @@ describe('Property 29: Card Type Row Assignment', () => {
             );
             break;
           case 'land':
-            expect(placed!.rowAssignment).toBe('row3-lands');
+            expect(['row3-lands', 'row4-lands']).toContain(placed!.rowAssignment);
             break;
           case 'artifact':
             expect(placed!.rowAssignment).toBe('row3-artifacts');

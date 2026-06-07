@@ -96,9 +96,10 @@ export function classifyLand(
   }
 
   // --- Checkland ---
-  // "unless you control a" followed by a basic land type
+  // "unless you control a" followed by a basic land type + produces exactly 2 colors
   if (oracle.includes('unless you control a') &&
-    BASIC_SUBTYPES.some(s => oracle.includes(s.toLowerCase()))) {
+    BASIC_SUBTYPES.some(s => oracle.includes(s.toLowerCase())) &&
+    producedMana.length === 2) {
     return 'checkland';
   }
 
@@ -139,8 +140,8 @@ export function classifyLand(
   }
 
   // --- Painland ---
-  // "deals 1 damage to you" + produces exactly 2 colors
-  if (oracle.includes('deals 1 damage to you') && producedMana.length === 2) {
+  // "deals 1 damage to you" + produces C + 2 WUBRG colors (length 3)
+  if (oracle.includes('deals 1 damage to you') && producedMana.length === 3) {
     return 'painland';
   }
 

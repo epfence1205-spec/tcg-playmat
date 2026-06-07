@@ -1,3 +1,5 @@
+import type { LandCategory } from './api/landCategorizer';
+
 /**
  * Zone identifiers for all card locations in the game.
  */
@@ -97,6 +99,8 @@ export interface CardData {
   colorIdentity: string[];
   /** Colors of mana this card can produce (lands) */
   producedMana: string[];
+  /** Land classification category, null for non-land cards */
+  landCategory: LandCategory | null;
   /** True if this card is a token (created via Token Panel or token copy) */
   isToken: boolean;
   /** True if this card is a token copy of a non-token card (triggers TOKEN badge) */

@@ -45,6 +45,8 @@
 ## Known Bugs
 - **Yellow ring flash on click+keybind** — Clicking a card then immediately using a keyboard shortcut (e.g., T to tap neighbor) causes dnd-kit to briefly show yellow drop-target ring (~3s). Likely dnd-kit interpreting mousedown as drag start before keyboard action fires.
 - **Lands/noncreatures lack sortable ghost** — Creature rows have drag-to-reorder with ghost indicator, but split rows (lands, artifacts, enchantments) don't show the same sortable ghost feedback during drag.
+- **Moxfield 403** — Moxfield API returns 403 even with User-Agent header in Vite proxy. Needs further investigation into their auth/rate-limiting requirements.
+- **Plain text parser drops "Reanimate"** — When a deck contains both "Grave Researcher" (DFC whose back face is "Reanimate") and standalone "Reanimate", one gets lost during import. Likely a name collision in Scryfall batch resolution or identifierMap dedup.
 
 ## Next Session
 - **Creature row rebalancing** — When split into 2 rows, prefer moving a card to row 2 over compressing row 1 if row 2 has room to spare

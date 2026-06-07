@@ -6,8 +6,10 @@
 export interface DeckEntry {
   name: string;
   quantity: number;
-  /** Optional set code for specific printing (e.g., from Archidekt) */
+  /** Optional set code for specific printing (e.g., from Archidekt/Moxfield) */
   set?: string;
+  /** Optional collector number for exact printing lookup via Scryfall */
+  collectorNumber?: string;
 }
 
 /**

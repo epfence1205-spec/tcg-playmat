@@ -38,6 +38,7 @@ describe('persistence', () => {
       cardType: 'creature',
       isToken: false,
       isTokenCopy: false,
+      landCategory: null,
     };
   }
 

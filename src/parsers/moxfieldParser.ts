@@ -12,7 +12,7 @@ export interface MoxfieldResult {
 }
 
 /** Regex pattern matching valid Moxfield deck URLs */
-const MOXFIELD_URL_PATTERN = /^(?:https?:\/\/)?(?:www\.)?moxfield\.com\/decks\/([a-zA-Z0-9_-]+)\/?$/;
+const MOXFIELD_URL_PATTERN = /^(?:https?:\/\/)?(?:www\.)?moxfield\.com\/decks\/([a-zA-Z0-9_-]+)\/?(?:[?#].*)?$/;
 
 /**
  * Validates whether a string is a valid Moxfield deck URL.
@@ -39,14 +39,17 @@ function extractDeckId(url: string): string | null {
 
 /**
  * Parses a Moxfield API card map into DeckEntry[].
- * The API returns objects where keys are card names and values have a `quantity` field.
+ * The API returns objects where keys are internal IDs and values contain card data.
  */
-function parseCardMap(cardMap: Record<string, { quantity: number }>): DeckEntry[] {
+function parseCardMap(cardMap: Record<string, { quantity: number; card?: { name?: string; set?: string; collector_number?: string } }>): DeckEntry[] {
   const entries: DeckEntry[] = [];
 
-  for (const [name, data] of Object.entries(cardMap)) {
+  for (const [key, data] of Object.entries(cardMap)) {
     if (data.quantity > 0) {
-      entries.push({ name, quantity: data.quantity });
+      const name = data.card?.name ?? key;
+      const set = data.card?.set ?? undefined;
+      const collectorNumber = data.card?.collector_number ?? undefined;
+      entries.push({ name, quantity: data.quantity, set, collectorNumber });
     }
   }
 
@@ -81,6 +84,7 @@ export async function fetchMoxfieldDeck(url: string): Promise<MoxfieldResult> {
       signal: controller.signal,
       headers: {
         'Accept': 'application/json',
+        'User-Agent': 'TCGPlaymat/1.0',
       },
     });
   } catch (error: unknown) {

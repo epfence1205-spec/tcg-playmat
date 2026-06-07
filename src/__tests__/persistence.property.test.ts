@@ -85,6 +85,16 @@ const cardDataArb: fc.Arbitrary<CardData> = fc
     cardType: cardTypeArb,
     isToken: fc.boolean(),
     isTokenCopy: fc.boolean(),
+    landCategory: fc.option(
+      fc.constantFrom(
+        'basic', 'dual', 'shockland', 'fetchland', 'checkland',
+        'tangoland', 'fastland', 'slowland', 'bondland', 'painland',
+        'filterland', 'bounceland', 'canopyland', 'shadowland', 'scryland',
+        'gainland', 'surveilland', 'storageland', 'bikeland', 'tricycleland',
+        'triland', 'creatureland', 'pathway', 'rainbow', 'utility', 'unknown'
+      ),
+      { nil: null }
+    ),
   });
 
 /** Generates a Counter */

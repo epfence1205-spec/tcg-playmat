@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import * as fc from 'fast-check';
 import { mapToCardData, deriveCardType } from './mapToCardData';
+import { classifyLand } from './landCategorizer';
 import type { ScryfallCard } from './scryfallResolver';
 
 describe('deriveCardType', () => {
@@ -203,5 +205,126 @@ describe('mapToCardData', () => {
 
     const result = mapToCardData(cardNoLarge);
     expect(result.imageURILarge).toBe('');
+  });
+});
+
+// Feature: land-categorization, Property 2: Non-land nullity
+// Feature: land-categorization, Property 3: Land classification consistency
+
+/**
+ * Arbitrary generator for non-land type lines.
+ * Produces type lines that do NOT contain "land" (case-insensitive).
+ */
+const nonLandTypeLine = fc.constantFrom(
+  'Creature — Human Wizard',
+  'Artifact Creature — Golem',
+  'Legendary Planeswalker — Jace',
+  'Instant',
+  'Sorcery',
+  'Enchantment — Aura',
+  'Artifact — Equipment',
+  'Battle — Siege',
+  'Tribal Instant — Goblin',
+  'Legendary Creature — Dragon',
+  'Artifact',
+  'Enchantment',
+);
+
+/**
+ * Arbitrary generator for land type lines.
+ */
+const landTypeLine = fc.constantFrom(
+  'Basic Land — Forest',
+  'Basic Land — Plains',
+  'Basic Land — Island',
+  'Basic Land — Swamp',
+  'Basic Land — Mountain',
+  'Land — Plains Island',
+  'Land',
+  'Land — Swamp Mountain',
+  'Legendary Land',
+  'Snow Land — Forest',
+  'Land — Gate',
+);
+
+/**
+ * Generator for a ScryfallCard with a non-land type line.
+ */
+const nonLandScryfallCard: fc.Arbitrary<ScryfallCard> = fc.record({
+  name: fc.string({ minLength: 1, maxLength: 40 }),
+  set: fc.stringMatching(/^[a-z]{3,5}$/),
+  collector_number: fc.nat({ max: 999 }).map(String),
+  image_uris: fc.constant({ normal: 'https://example.com/card.jpg', large: 'https://example.com/card-large.jpg' }),
+  type_line: nonLandTypeLine,
+  oracle_text: fc.string({ maxLength: 200 }),
+  produced_mana: fc.constant(undefined),
+});
+
+/**
+ * Generator for a ScryfallCard with a land type line.
+ */
+const landScryfallCard: fc.Arbitrary<ScryfallCard> = fc.record({
+  name: fc.constantFrom('Forest', 'Plains', 'Island', 'Swamp', 'Mountain', 'Breeding Pool', 'Scalding Tarn', 'Command Tower', 'Rogue\'s Passage', 'Temple of Silence'),
+  set: fc.stringMatching(/^[a-z]{3,5}$/),
+  collector_number: fc.nat({ max: 999 }).map(String),
+  image_uris: fc.constant({ normal: 'https://example.com/land.jpg', large: 'https://example.com/land-large.jpg' }),
+  type_line: landTypeLine,
+  oracle_text: fc.oneof(
+    fc.constant(''),
+    fc.constant('{T}: Add {G}.'),
+    fc.constant('({T}: Add {W} or {U}.)'),
+    fc.constant('{T}: Add one mana of any color.'),
+    fc.constant('Breeding Pool enters tapped unless you pay 2 life.\n({T}: Add {G} or {U}.)'),
+    fc.constant('Search your library for a basic land card, put it onto the battlefield tapped, then shuffle. Sacrifice this land.'),
+  ),
+  produced_mana: fc.oneof(
+    fc.constant(undefined),
+    fc.constant(['G']),
+    fc.constant(['W', 'U']),
+    fc.constant(['W', 'U', 'B', 'R', 'G']),
+    fc.constant(['B', 'R']),
+  ),
+});
+
+describe('mapToCardData property tests', () => {
+  /**
+   * **Validates: Requirements 2.2, 2.4**
+   *
+   * Property 2: Non-land nullity — For any card with cardType !== 'land',
+   * landCategory is null.
+   */
+  it('Property 2: non-land cards always have landCategory === null', () => {
+    fc.assert(
+      fc.property(nonLandScryfallCard, (card) => {
+        const result = mapToCardData(card);
+        expect(result.cardType).not.toBe('land');
+        expect(result.landCategory).toBeNull();
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  /**
+   * **Validates: Requirements 2.3**
+   *
+   * Property 3: Land classification consistency — For any land,
+   * landCategory equals classifyLand(...) output.
+   */
+  it('Property 3: land cards have landCategory === classifyLand(...)', () => {
+    fc.assert(
+      fc.property(landScryfallCard, (card) => {
+        const result = mapToCardData(card);
+        // Only verify the property when front face is actually classified as land
+        if (result.cardType !== 'land') return; // skip non-land edge cases from generator
+        const expected = classifyLand(
+          result.oracleText,
+          card.card_faces?.[0]?.type_line ?? card.type_line,
+          card.produced_mana ?? [],
+          card.card_faces?.[0]?.name ?? card.name,
+        );
+        expect(result.landCategory).toBe(expected);
+      }),
+      { numRuns: 100 },
+    );
   });
 });

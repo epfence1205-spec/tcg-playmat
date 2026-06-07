@@ -38,16 +38,20 @@ export async function importDeck(
   commanderNames: string[],
   options?: ImportOptions
 ): Promise<ImportResult> {
-  // 1. Build unique identifiers (name + optional set code for specific printings)
-  const identifierMap = new Map<string, { name: string; set?: string }>();
+  // 1. Build unique identifiers (name + optional set code + optional collector number for specific printings)
+  const identifierMap = new Map<string, { name: string; set?: string; collector_number?: string }>();
   for (const entry of entries) {
     if (!identifierMap.has(entry.name)) {
-      identifierMap.set(entry.name, { name: entry.name, ...(entry.set ? { set: entry.set } : {}) });
+      identifierMap.set(entry.name, {
+        name: entry.name,
+        ...(entry.set ? { set: entry.set } : {}),
+        ...(entry.collectorNumber ? { collector_number: entry.collectorNumber } : {}),
+      });
     }
   }
   const uniqueIdentifiers = [...identifierMap.values()];
 
-  // 2. Resolve via Scryfall (with set codes for correct art)
+  // 2. Resolve via Scryfall (with set+collector_number or set+name for correct art)
   const { resolved, failures } = await resolveCards(uniqueIdentifiers, {
     onProgress: options?.onProgress,
   });

@@ -13,7 +13,7 @@ export interface ArchidektResult {
 
 /** Regex pattern matching valid Archidekt deck URLs */
 const ARCHIDEKT_URL_PATTERN =
-  /^(?:https?:\/\/)?(?:www\.)?archidekt\.com\/decks\/(\d+)(?:\/[a-zA-Z0-9_-]*)?\/?\s*$/;
+  /^(?:https?:\/\/)?(?:www\.)?archidekt\.com\/decks\/(\d+)(?:\/[a-zA-Z0-9_-]*)?\/?\s*(?:[?#].*)?$/;
 
 /**
  * Validates whether a string is a valid Archidekt deck URL.

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { moveCard, removeCardFromZone } from '../gameActions';
+import { moveCard, removeCardFromZone, addToBattlefield, findColorGroupInsertionIndex, getManaGroupKey } from '../gameActions';
 import type { CardData, GameState, RowCard, ExileCard } from '../types';
+import type { LandCategory } from '../api/landCategorizer';
 
 /** Helper to create a CardData with a given id */
 function makeCard(id: string, overrides?: Partial<CardData>): CardData {
@@ -12,6 +13,10 @@ function makeCard(id: string, overrides?: Partial<CardData>): CardData {
     imageURI: 'https://cards.scryfall.io/normal/front.jpg',
     imageURILarge: 'https://cards.scryfall.io/large/front.jpg',
     backFaceImageURI: null,
+    backFaceCardType: null,
+    backFaceName: null,
+    backFacePower: null,
+    backFaceToughness: null,
     typeLine: 'Creature — Test',
     oracleText: 'Test card',
     isCommander: false,
@@ -19,6 +24,11 @@ function makeCard(id: string, overrides?: Partial<CardData>): CardData {
     basePower: '2',
     baseToughness: '2',
     cardType: 'creature',
+    cmc: 0,
+    manaCost: '',
+    colorIdentity: [],
+    producedMana: [],
+    landCategory: null,
     isToken: false,
     isTokenCopy: false,
     ...overrides,
@@ -333,7 +343,7 @@ describe('moveCard', () => {
     });
 
     it('auto-assigns land to row3 left when no targetRow specified', () => {
-      const card = makeCard('a', { cardType: 'land', typeLine: 'Basic Land — Forest' });
+      const card = makeCard('a', { cardType: 'land', typeLine: 'Basic Land — Forest', landCategory: 'basic' });
       const state = createTestState({ hand: [card] });
       const result = moveCard(state, 'a', 'hand', 'battlefield');
 
@@ -358,5 +368,222 @@ describe('moveCard', () => {
       expect(result.row4.right).toHaveLength(1);
       expect(result.row4.right[0].card.id).toBe('a');
     });
+  });
+});
+
+
+// ─── getDefaultRowTarget routing (via addToBattlefield) ──────────────────────
+// Validates Requirements 4.1, 4.2
+
+describe('getDefaultRowTarget land routing', () => {
+  function makeLand(id: string, landCategory: LandCategory | null): CardData {
+    return makeCard(id, {
+      cardType: 'land',
+      typeLine: 'Land',
+      oracleText: '',
+      basePower: null,
+      baseToughness: null,
+      landCategory,
+      producedMana: ['W'],
+    });
+  }
+
+  const emptyState = createTestState();
+
+  it('routes "basic" lands to row3-lands', () => {
+    const card = makeLand('land-1', 'basic');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+    expect(result.row3.left[0].card.id).toBe('land-1');
+  });
+
+  it('routes "dual" lands to row3-lands', () => {
+    const card = makeLand('land-1', 'dual');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "shockland" to row3-lands', () => {
+    const card = makeLand('land-1', 'shockland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "fetchland" to row3-lands', () => {
+    const card = makeLand('land-1', 'fetchland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "checkland" to row3-lands', () => {
+    const card = makeLand('land-1', 'checkland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "painland" to row3-lands', () => {
+    const card = makeLand('land-1', 'painland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "rainbow" to row3-lands', () => {
+    const card = makeLand('land-1', 'rainbow');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "utility" lands to row4-lands', () => {
+    const card = makeLand('land-1', 'utility');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row4.left).toHaveLength(1);
+    expect(result.row4.left[0].card.id).toBe('land-1');
+  });
+
+  it('routes "creatureland" to row4-lands', () => {
+    const card = makeLand('land-1', 'creatureland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row4.left).toHaveLength(1);
+    expect(result.row4.left[0].card.id).toBe('land-1');
+  });
+
+  it('routes null landCategory to row4-lands', () => {
+    const card = makeLand('land-1', null);
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row4.left).toHaveLength(1);
+    expect(result.row4.left[0].card.id).toBe('land-1');
+  });
+
+  it('routes "unknown" landCategory to row4-lands', () => {
+    const card = makeLand('land-1', 'unknown');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row4.left).toHaveLength(1);
+    expect(result.row4.left[0].card.id).toBe('land-1');
+  });
+
+  it('routes "scryland" to row3-lands', () => {
+    const card = makeLand('land-1', 'scryland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  it('routes "triland" to row3-lands', () => {
+    const card = makeLand('land-1', 'triland');
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+  });
+
+  // Validates Requirements 4.1, 4.2 — remaining mana-producing categories
+  it.each([
+    'tangoland', 'fastland', 'slowland', 'bondland',
+    'filterland', 'bounceland', 'canopyland', 'shadowland',
+    'gainland', 'surveilland', 'storageland', 'bikeland',
+    'tricycleland', 'pathway',
+  ] as LandCategory[])('routes "%s" to row3-lands', (category) => {
+    const card = makeLand('land-1', category);
+    const result = addToBattlefield(emptyState, card);
+    expect(result.row3.left).toHaveLength(1);
+    expect(result.row3.left[0].rowAssignment).toBe('row3-lands');
+  });
+});
+
+
+// ─── findColorGroupInsertionIndex ────────────────────────────────────────────
+// Validates Requirements 4.1, 4.2, 4.4, 4.5
+
+describe('findColorGroupInsertionIndex', () => {
+  function makeLandRowCard(id: string, producedMana: string[]): RowCard {
+    return makeRowCard(id, {
+      card: makeCard(id, {
+        cardType: 'land',
+        typeLine: 'Land',
+        producedMana,
+        landCategory: 'basic',
+      }),
+      rowAssignment: 'row3-lands',
+    });
+  }
+
+  it('returns 0 for an empty row', () => {
+    expect(findColorGroupInsertionIndex([], 'W')).toBe(0);
+  });
+
+  it('inserts after the last card in the same group', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['W']),
+    ];
+    // Insert another W land → should go after index 1
+    expect(findColorGroupInsertionIndex(lands, 'W')).toBe(2);
+  });
+
+  it('inserts after same group when other groups exist', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['W']),
+      makeLandRowCard('3', ['U']),
+    ];
+    // Insert another W land → after the W group (index 2)
+    expect(findColorGroupInsertionIndex(lands, 'W')).toBe(2);
+  });
+
+  it('new group inserts at end when no rainbow section exists', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['U']),
+    ];
+    // New group "B" → appends at end (no rainbow to insert before)
+    expect(findColorGroupInsertionIndex(lands, 'B')).toBe(2);
+  });
+
+  it('new group inserts before rainbow section', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['W', 'U', 'B', 'R', 'G']), // rainbow
+    ];
+    // New group "U" → insert before rainbow (index 1)
+    expect(findColorGroupInsertionIndex(lands, 'U')).toBe(1);
+  });
+
+  it('rainbow lands always append at end', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['U']),
+      makeLandRowCard('3', ['W', 'U', 'B', 'R', 'G']), // rainbow
+    ];
+    // Rainbow key → always append
+    expect(findColorGroupInsertionIndex(lands, 'rainbow')).toBe(3);
+  });
+
+  it('rainbow lands append even to empty row', () => {
+    expect(findColorGroupInsertionIndex([], 'rainbow')).toBe(0);
+  });
+
+  it('finds correct position for multi-color group key', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['B', 'W']), // key = "B,W"
+      makeLandRowCard('3', ['U']),
+    ];
+    // Insert another B,W land → after index 1
+    expect(findColorGroupInsertionIndex(lands, 'B,W')).toBe(2);
+  });
+
+  it('stops scanning at rainbow boundary when looking for same-group', () => {
+    const lands = [
+      makeLandRowCard('1', ['W']),
+      makeLandRowCard('2', ['W', 'U', 'B', 'R', 'G']), // rainbow
+    ];
+    // Looking for W group — found at index 0, so insert after it
+    expect(findColorGroupInsertionIndex(lands, 'W')).toBe(1);
+  });
+
+  it('handles colorless group key (empty producedMana)', () => {
+    const lands = [
+      makeLandRowCard('1', []),  // key = ""
+      makeLandRowCard('2', ['W']),
+    ];
+    // Insert another colorless land → after index 0
+    expect(findColorGroupInsertionIndex(lands, '')).toBe(1);
   });
 });

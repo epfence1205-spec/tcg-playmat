@@ -1,6 +1,7 @@
 import type { CardData, CardType } from '../types';
 import type { ScryfallCard } from './scryfallResolver';
 import { parseKeywords } from '../keywords';
+import { classifyLand } from './landCategorizer';
 
 /**
  * Derives a CardType from the full type line string.
@@ -51,10 +52,17 @@ export function mapToCardData(raw: ScryfallCard, isCommander: boolean = false): 
 
   // For DFCs, use front face type line for cardType (not the combined "Instant // Land")
   const frontFaceTypeLine = raw.card_faces?.[0]?.type_line ?? raw.type_line;
+  const cardType = deriveCardType(frontFaceTypeLine);
+  const producedMana = raw.produced_mana ?? [];
+  const name = raw.card_faces?.[0]?.name ?? raw.name;
+
+  const landCategory = cardType === 'land'
+    ? classifyLand(oracleText, frontFaceTypeLine, producedMana, name)
+    : null;
 
   return {
     id: crypto.randomUUID(),
-    name: raw.card_faces?.[0]?.name ?? raw.name,
+    name,
     setCode: raw.set,
     collectorNumber: raw.collector_number,
     imageURI: raw.image_uris?.normal ?? raw.card_faces?.[0]?.image_uris?.normal ?? '',
@@ -69,11 +77,12 @@ export function mapToCardData(raw: ScryfallCard, isCommander: boolean = false): 
     isCommander,
     basePower: raw.card_faces?.[0]?.power ?? raw.power ?? null,
     baseToughness: raw.card_faces?.[0]?.toughness ?? raw.toughness ?? null,
-    cardType: deriveCardType(frontFaceTypeLine),
+    cardType,
     cmc: raw.cmc ?? 0,
     manaCost: raw.card_faces?.[0]?.mana_cost ?? raw.mana_cost ?? '',
     colorIdentity: raw.color_identity ?? [],
-    producedMana: raw.produced_mana ?? [],
+    producedMana,
+    landCategory,
     keywords: parseKeywords(oracleText),
     isToken: false,
     isTokenCopy: false,

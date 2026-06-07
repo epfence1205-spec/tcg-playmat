@@ -1,4 +1,4 @@
-import type { GameState, MulliganState } from './types';
+import type { CardData, GameState, MulliganState, RowCard } from './types';
 
 export const STORAGE_KEY = 'tcg-playmat-state';
 const DEBOUNCE_MS = 100;
@@ -54,15 +54,60 @@ function serializeState(state: GameState): SerializedGameState {
 }
 
 /**
+ * Patches a deserialized CardData object to include missing fields
+ * introduced in later versions. Defaults `landCategory` to `null`
+ * when not present in persisted data (backward compatibility).
+ */
+export function patchCardData(card: CardData): CardData {
+  return { ...card, landCategory: (card as Record<string, unknown>).landCategory ?? null };
+}
+
+/**
+ * Patches a RowCard and all its attachments' CardData.
+ */
+function patchRowCard(rc: RowCard): RowCard {
+  return {
+    ...rc,
+    card: patchCardData(rc.card),
+    attachments: rc.attachments.map(att => ({
+      ...att,
+      card: patchCardData(att.card),
+    })),
+  };
+}
+
+/**
  * Converts a deserialized JSON object back to a proper GameState.
  * Transforms the selectedToPutBack array back into a Set<string>.
+ * Patches all CardData to include fields added in later versions.
  */
 function deserializeState(data: SerializedGameState): GameState {
   return {
     ...data,
+    hand: data.hand.map(patchCardData),
+    library: data.library.map(patchCardData),
+    graveyard: data.graveyard.map(patchCardData),
+    exile: data.exile.map(e => ({ ...e, card: patchCardData(e.card) })),
+    commandZone: data.commandZone.map(patchCardData),
+    creatureArea: {
+      ...data.creatureArea,
+      rows: data.creatureArea.rows.map(row => ({
+        ...row,
+        elements: row.elements.map(patchRowCard),
+      })),
+    },
+    row3: {
+      left: data.row3.left.map(patchRowCard),
+      right: data.row3.right.map(patchRowCard),
+    },
+    row4: {
+      left: data.row4.left.map(patchRowCard),
+      right: data.row4.right.map(patchRowCard),
+    },
     mulliganState: data.mulliganState
       ? {
           ...data.mulliganState,
+          drawnCards: data.mulliganState.drawnCards.map(patchCardData),
           selectedToPutBack: new Set(data.mulliganState.selectedToPutBack),
         }
       : null,

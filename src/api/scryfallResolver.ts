@@ -30,6 +30,7 @@ export interface ScryfallCard {
 export interface CardIdentifier {
   name: string;
   set?: string;
+  collector_number?: string;
 }
 
 /** Result of resolving a batch of card identifiers against Scryfall. */
@@ -97,13 +98,19 @@ function normalizeDfcName(name: string): string {
 
 /**
  * Builds the Scryfall identifier payload for a batch.
- * Includes set code when available for more precise lookups.
+ * Prefers {set, collector_number} for exact printing when both are available.
+ * Falls back to {name, set} or {name} otherwise.
  * Normalizes DFC names to front face only for reliable resolution.
  */
 function buildScryfallIdentifiers(
   identifiers: CardIdentifier[]
-): Array<{ name: string; set?: string }> {
+): Array<{ name?: string; set?: string; collector_number?: string }> {
   return identifiers.map((id) => {
+    // Prefer set + collector_number (exact printing, most reliable)
+    if (id.set && id.collector_number) {
+      return { set: id.set, collector_number: id.collector_number };
+    }
+    // Fall back to name + optional set
     const entry: { name: string; set?: string } = { name: normalizeDfcName(id.name) };
     if (id.set) {
       entry.set = id.set;
@@ -154,7 +161,11 @@ export async function resolveCards(
     try {
       const response = await fetch(SCRYFALL_COLLECTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'User-Agent': 'TCGPlaymat/1.0',
+        },
         body: JSON.stringify({ identifiers: scryfallIdentifiers }),
       });
 

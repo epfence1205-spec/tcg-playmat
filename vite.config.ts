@@ -21,6 +21,9 @@ export default defineConfig({
         target: 'https://api2.moxfield.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/moxfield/, ''),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        },
       },
     },
   },
@@ -28,5 +31,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
+    include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)', '**/*.pbt.ts'],
   },
 })

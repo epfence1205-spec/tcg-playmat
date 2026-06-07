@@ -97,7 +97,7 @@ describe('resolveCards', () => {
       '/api/scryfall/cards/collection',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'TCGPlaymat/1.0' },
         body: JSON.stringify({ identifiers: [{ name: 'Sol Ring' }] }),
       })
     );

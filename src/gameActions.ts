@@ -14,6 +14,49 @@ import { getRowCards, setRowCards } from './sortableHelpers';
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
 /**
+ * Produces a stable sort key from a producedMana array.
+ * Filters to WUBRG colors only, sorts alphabetically, and joins with comma.
+ * Returns "rainbow" for 5+ colors.
+ *
+ * Examples:
+ *   ["W"]         → "W"
+ *   ["W", "B"]    → "B,W"
+ *   ["G","U","W"] → "G,U,W"
+ *   ["W","U","B","R","G"] → "rainbow"
+ *   []            → ""
+ */
+export function getManaGroupKey(producedMana: string[]): string {
+  const colors = (producedMana ?? []).filter(c => 'WUBRG'.includes(c));
+  if (colors.length >= 5) return 'rainbow';
+  return [...colors].sort().join(',');
+}
+
+/**
+ * Finds the correct insertion index for a land with the given group key.
+ * Rainbow lands go at the end (rightmost group in row 3).
+ * Other groups maintain stable ordering: first occurrence defines group position.
+ */
+export function findColorGroupInsertionIndex(lands: RowCard[], key: string): number {
+  if (key === 'rainbow') return lands.length; // always append at end
+
+  // Find last card in the same group
+  let lastSameGroup = -1;
+  for (let i = 0; i < lands.length; i++) {
+    const k = getManaGroupKey(lands[i].card.producedMana);
+    if (k === 'rainbow') break; // stop before rainbow section
+    if (k === key) lastSameGroup = i;
+  }
+
+  if (lastSameGroup >= 0) return lastSameGroup + 1; // insert after last in group
+
+  // New group — insert before rainbow section
+  const rainbowStart = lands.findIndex(
+    rc => getManaGroupKey(rc.card.producedMana) === 'rainbow'
+  );
+  return rainbowStart >= 0 ? rainbowStart : lands.length;
+}
+
+/**
  * Creates a RowCard from CardData with the given row assignment and position.
  */
 export function createRowCard(
@@ -295,40 +338,24 @@ function removeCardFromBattlefield(
 }
 
 /**
- * Determines the default RowTarget for a card based on its cardType and oracle text.
+ * Determines the default RowTarget for a card based on its cardType and landCategory.
  * - creature → creature-1
- * - land (basic/mana-only) → row3-lands
- * - land (utility — has oracle text beyond basic mana) → row4-lands
+ * - land (utility/creatureland/null/unknown) → row4-lands
+ * - land (all other categories) → row3-lands
  * - artifact → row3-artifacts
  * - enchantment → row4-enchantments
  * - planeswalker/battle → pw-battle-column
- * - other (instant/sorcery/other) → creature-1 (fallback)
+ * - other (instant/sorcery/other) → creature-2 (fallback)
  */
 function getDefaultRowTarget(card: CardData): RowTarget {
   switch (card.cardType) {
     case 'creature':
       return 'creature-1';
     case 'land': {
-      // Basic lands go to row3 always
-      const isBasic = card.typeLine.toLowerCase().includes('basic');
-      if (isBasic) return 'row3-lands';
-      
-      // Non-basic lands: check if they ONLY produce mana or have other abilities
-      // Mana-only: oracle text only contains tap-for-mana abilities
-      // Utility: has abilities beyond mana production (ETB effects, activated abilities that aren't mana, grants abilities, etc.)
-      const text = (card.oracleText || '').trim();
-      if (!text) return 'row3-lands'; // No text = mana-only (like some promo basics)
-      
-      // Split into abilities (separated by newlines)
-      const abilities = text.split('\n').map(a => a.trim()).filter(a => a.length > 0);
-      
-      // Check if ALL abilities are mana-producing (contain "Add" and "{T}:")
-      const allManaOnly = abilities.every(ability => {
-        const lower = ability.toLowerCase();
-        return lower.includes('add') && (lower.includes('{t}') || lower.includes('tap'));
-      });
-      
-      return allManaOnly ? 'row3-lands' : 'row4-lands';
+      if (!card.landCategory || card.landCategory === 'utility' || card.landCategory === 'creatureland') {
+        return 'row4-lands';
+      }
+      return 'row3-lands';
     }
     case 'artifact':
       return 'row3-artifacts';
@@ -365,6 +392,20 @@ export function addToBattlefield(
 }
 
 /**
+ * Inserts a land card into row3-lands at the correct color-group position.
+ * Uses getManaGroupKey to determine the card's group and findColorGroupInsertionIndex
+ * to find the sorted insertion point within the existing lands.
+ */
+export function insertLandSorted(lands: RowCard[], card: CardData): RowCard[] {
+  const key = getManaGroupKey(card.producedMana);
+  const index = findColorGroupInsertionIndex(lands, key);
+  const rowCard = createRowCard(card, 'row3-lands', index);
+  const newLands = [...lands];
+  newLands.splice(index, 0, rowCard);
+  return newLands;
+}
+
+/**
  * Internal helper: adds a RowCard to the specified target row.
  */
 function addRowCardToTarget(
@@ -377,9 +418,8 @@ function addRowCardToTarget(
   }
 
   if (target === 'row3-lands') {
-    const positionIndex = state.row3.left.length;
-    const rowCard = createRowCard(card, target, positionIndex);
-    return { ...state, row3: { ...state.row3, left: [...state.row3.left, rowCard] } };
+    const newLands = insertLandSorted(state.row3.left, card);
+    return { ...state, row3: { ...state.row3, left: newLands } };
   }
 
   if (target === 'row3-artifacts') {
