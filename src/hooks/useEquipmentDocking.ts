@@ -49,8 +49,39 @@ export function isAuraCard(typeLine: string): boolean {
  */
 export function isDockableCard(typeLine: string, cardType: CardType): boolean {
   if (cardType === 'artifact' && isEquipmentCard(typeLine)) return true;
+  if (cardType === 'artifact' && /\bfortification\b/i.test(typeLine)) return true;
   if (cardType === 'enchantment' && isAuraCard(typeLine)) return true;
   return false;
+}
+
+/**
+ * Determines the valid target card types for an equipment/aura attachment.
+ * Based on oracle text "enchant X" for auras, or fixed rules for equipment/fortification.
+ *
+ * @returns Array of CardType values that this card can legally attach to.
+ *          Empty array means no valid permanent targets (e.g., "enchant player").
+ */
+export function getValidDockTargets(oracleText: string, typeLine: string, cardType: CardType): CardType[] {
+  // Equipment always targets creatures
+  if (cardType === 'artifact' && isEquipmentCard(typeLine)) return ['creature'];
+  // Fortification always targets lands
+  if (cardType === 'artifact' && /\bfortification\b/i.test(typeLine)) return ['land'];
+
+  // Auras — parse "enchant X" from oracle text
+  if (cardType === 'enchantment' && isAuraCard(typeLine)) {
+    const lower = oracleText.toLowerCase();
+    if (/enchant permanent/i.test(lower)) return ['creature', 'land', 'artifact', 'enchantment', 'planeswalker'];
+    if (/enchant (a |tapped )?creature/i.test(lower)) return ['creature'];
+    if (/enchant (land|forest|island|mountain|plains|swamp)/i.test(lower)) return ['land'];
+    if (/enchant artifact/i.test(lower)) return ['artifact'];
+    if (/enchant enchantment/i.test(lower)) return ['enchantment'];
+    if (/enchant planeswalker/i.test(lower)) return ['planeswalker'];
+    if (/enchant (player|opponent)/i.test(lower)) return [];
+    // Default: auras without explicit "enchant X" target creatures
+    return ['creature'];
+  }
+
+  return [];
 }
 
 /**
@@ -107,24 +138,30 @@ export function useEquipmentDocking(
     targetId: string,
     targetData: Record<string, unknown> | undefined
   ): boolean => {
-    // ─── Case 1: Attaching equipment to a creature ─────────────────────────
-    // The dragged card is an equipment/aura and the target is a creature card
-    if (targetData?.cardId && targetData?.cardType === 'creature') {
-      const creatureId = targetData.cardId as string;
+    // ─── Case 1: Attaching equipment to a valid target ─────────────────────────
+    // The dragged card is an equipment/aura and the target is a valid dock target
+    if (targetData?.cardId && targetData?.cardType) {
+      const targetCardType = targetData.cardType as CardType;
+      const targetCardId = targetData.cardId as string;
 
       // Find the dragged card to check if it's dockable
       const draggedResult = findCardOnBattlefield(state, draggedCardId);
       if (!draggedResult) return false;
 
       const typeLine = draggedResult.card.card.typeLine;
+      const oracleText = draggedResult.card.card.oracleText;
       if (!isDockableCard(typeLine, draggedCardType)) return false;
 
+      // Check if the target type is valid for this attachment
+      const validTargets = getValidDockTargets(oracleText, typeLine, draggedCardType);
+      if (!validTargets.includes(targetCardType)) return false;
+
       // Don't attach to self
-      if (draggedCardId === creatureId) return false;
+      if (draggedCardId === targetCardId) return false;
 
       // Perform the attach
       try {
-        setState((prev) => attachEquipment(prev, draggedCardId, creatureId));
+        setState((prev) => attachEquipment(prev, draggedCardId, targetCardId));
         return true;
       } catch {
         return false;
@@ -161,17 +198,27 @@ export function useEquipmentDocking(
         }
       }
 
-      // If dropped on a different creature, detach from current and attach to new
-      if (targetData?.cardId && targetData?.cardType === 'creature') {
-        const newCreatureId = targetData.cardId as string;
-        try {
-          setState((prev) => {
-            const detached = detachEquipment(prev, draggedCardId, attachedCreatureId);
-            return attachEquipment(detached, draggedCardId, newCreatureId);
-          });
-          return true;
-        } catch {
-          return false;
+      // If dropped on a different valid target, detach from current and attach to new
+      if (targetData?.cardId && targetData?.cardType) {
+        const newTargetId = targetData.cardId as string;
+        const newTargetType = targetData.cardType as CardType;
+        // Validate the new target is valid for this attachment
+        const draggedResult = findCardOnBattlefield(state, draggedCardId);
+        if (draggedResult) {
+          const typeLine = draggedResult.card.card.typeLine;
+          const oracleText = draggedResult.card.card.oracleText;
+          const validTargets = getValidDockTargets(oracleText, typeLine, draggedCardType);
+          if (validTargets.includes(newTargetType)) {
+            try {
+              setState((prev) => {
+                const detached = detachEquipment(prev, draggedCardId, attachedCreatureId);
+                return attachEquipment(detached, draggedCardId, newTargetId);
+              });
+              return true;
+            } catch {
+              return false;
+            }
+          }
         }
       }
     }

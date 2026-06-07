@@ -19,7 +19,7 @@ import { resolveTokensForDeck, clearTokenCache } from './api/tokenResolver'
 import type { TokenDefinition } from './api/tokenResolver'
 import { useGameState } from './hooks/useGameState'
 import { useHoveredCard } from './hooks/useHoveredCard'
-import { useEquipmentDocking } from './hooks/useEquipmentDocking'
+import { useEquipmentDocking, getValidDockTargets } from './hooks/useEquipmentDocking'
 import { useErrorHandling } from './hooks/useErrorHandling'
 import { useKeybinds } from './hooks/useKeybinds'
 import type { GameAction } from './hooks/useKeybinds'
@@ -600,61 +600,67 @@ function AppContent() {
       return
     }
 
-    // ─── Priority 2: Equipment/Aura docking (any source zone → creature) ─────────────
-    if (overData?.cardType === 'creature' && overData?.sourceZone === 'battlefield') {
-      const creatureId = overData.cardId as string
-      if (cardId !== creatureId) {
-        // Resolve the card's typeLine to check if it's dockable
+    // ─── Priority 2: Equipment/Aura docking (any source zone → valid target) ─────────────
+    if (overData?.cardType && overData?.sourceZone === 'battlefield' && overData?.cardId) {
+      const targetId = overData.cardId as string
+      const targetCardType = overData.cardType as string
+      if (cardId !== targetId) {
+        // Resolve the card's typeLine and oracleText to check if it's dockable
         let typeLine = ''
+        let oracleText = ''
         const handCard = gameState.hand.find(c => c.id === cardId)
-        if (handCard) typeLine = handCard.typeLine
+        if (handCard) { typeLine = handCard.typeLine; oracleText = handCard.oracleText }
         else {
           const gyCard = gameState.graveyard.find(c => c.id === cardId)
-          if (gyCard) typeLine = gyCard.typeLine
+          if (gyCard) { typeLine = gyCard.typeLine; oracleText = gyCard.oracleText }
           else {
             const exCard = gameState.exile.find(ec => ec.card.id === cardId)
-            if (exCard) typeLine = exCard.card.typeLine
+            if (exCard) { typeLine = exCard.card.typeLine; oracleText = exCard.card.oracleText }
             else {
               const bfCard = findCardOnBattlefield(gameState, cardId)
-              if (bfCard) typeLine = bfCard.card.card.typeLine
+              if (bfCard) { typeLine = bfCard.card.card.typeLine; oracleText = bfCard.card.card.oracleText }
               else {
                 // Check if it's currently an attachment
                 const allBf = getAllBattlefieldCards(gameState)
                 for (const rc of allBf) {
                   const att = rc.attachments.find(a => a.instanceId === cardId)
-                  if (att) { typeLine = att.card.typeLine; break }
+                  if (att) { typeLine = att.card.typeLine; oracleText = att.card.oracleText; break }
                 }
               }
             }
           }
         }
 
-        const isDockable = /\bequipment\b/i.test(typeLine) || /\baura\b/i.test(typeLine)
+        const isDockable = /\bequipment\b/i.test(typeLine) || /\baura\b/i.test(typeLine) || /\bfortification\b/i.test(typeLine)
         if (isDockable) {
-          setGameState((prev: GameState) => {
-            try {
-              let state = prev
+          // Validate target type against valid dock targets
+          const validTargets = getValidDockTargets(oracleText, typeLine, cardType as CardType)
+          if (validTargets.includes(targetCardType as CardType)) {
+            setGameState((prev: GameState) => {
+              try {
+                let state = prev
 
-              // Check if the card is currently an attachment on another creature
-              const allBf = getAllBattlefieldCards(state)
-              const parentCreature = allBf.find(rc => rc.attachments.some(a => a.instanceId === cardId))
+                // Check if the card is currently an attachment on another permanent
+                const allBf = getAllBattlefieldCards(state)
+                const parentPermanent = allBf.find(rc => rc.attachments.some(a => a.instanceId === cardId))
 
-              if (parentCreature) {
-                // Re-equip: detach from current creature, then attach to new one
-                state = detachEquipment(state, cardId, parentCreature.instanceId)
-                return attachEquipment(state, cardId, creatureId)
-              }
+                if (parentPermanent) {
+                  // Re-equip: detach from current, then attach to new
+                  state = detachEquipment(state, cardId, parentPermanent.instanceId)
+                  return attachEquipment(state, cardId, targetId)
+                }
 
-              if (sourceZone !== 'battlefield') {
-                // Coming from hand/graveyard/exile — move to battlefield first
-                state = moveCard(state, cardId, sourceZone, 'battlefield')
-              }
+                if (sourceZone !== 'battlefield') {
+                  // Coming from hand/graveyard/exile — move to battlefield first
+                  state = moveCard(state, cardId, sourceZone, 'battlefield')
+                }
 
-              // Attach to the target creature
-              return attachEquipment(state, cardId, creatureId)
-            } catch { return prev }
-          })
-          return
+                // Attach to the target
+                return attachEquipment(state, cardId, targetId)
+              } catch { return prev }
+            })
+            return
+          }
         }
       }
     }
