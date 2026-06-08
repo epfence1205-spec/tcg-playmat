@@ -41,19 +41,20 @@
 - ✅ Toggle Reveal (Spacebar / click) — visual reveal state for hand cards
 - ✅ Token system (create tokens, token copies, ephemerality, token panel)
 - ✅ Tokens filtered from softReset (don't pollute library)
+- ✅ Creature row rebalancing (route new creatures to row 2 when row 1 at capacity)
+- ✅ Command zone stack (CMC sorting, cascade overlap, Alt+click fan-out for partner commanders)
+- ✅ Enchant land auras (full aura/equipment docking matrix — enchant land, artifact, permanent, planeswalker, fortification)
+- ✅ Land categorization (classify utility vs mana-only, sorted row insertion, painland/checkland fixes)
 
 ## Known Bugs
-- **Yellow ring flash on click+keybind** — Clicking a card then immediately using a keyboard shortcut (e.g., T to tap neighbor) causes dnd-kit to briefly show yellow drop-target ring (~3s). Likely dnd-kit interpreting mousedown as drag start before keyboard action fires.
-- **Lands/noncreatures lack sortable ghost** — Creature rows have drag-to-reorder with ghost indicator, but split rows (lands, artifacts, enchantments) don't show the same sortable ghost feedback during drag.
-- **Moxfield 403** — Moxfield API returns 403 even with User-Agent header in Vite proxy. Needs further investigation into their auth/rate-limiting requirements.
-- **Plain text parser drops "Reanimate"** — When a deck contains both "Grave Researcher" (DFC whose back face is "Reanimate") and standalone "Reanimate", one gets lost during import. Likely a name collision in Scryfall batch resolution or identifierMap dedup.
+- ~~**Yellow ring flash on click+keybind** — Fixed: removed global `*:focus-visible` CSS outline and browser default focus outline from index.css.~~
+- ~~**Lands/noncreatures lack sortable ghost** — Fixed: replaced `DraggableCard` with plain `<img>` inside `DroppableCardSlot` to eliminate dnd-kit ID collision with `SortableCardWrapper`.~~
+- **Moxfield 403** — Cloudflare blocks Node's TLS fingerprint (JA3) on Vite's built-in HTTP proxy. `curl.exe` with browser User-Agent passes fine (proven). Parser logic is fixed and tested against v3 API (`boards.{zone}.cards` structure, `cn` field). **Dev fix:** custom Vite plugin shelling out to curl (WIP in `vite.config.ts`, plugin file not yet created). **Prod fix:** GitHub Pages is static-only — needs an external serverless proxy (Cloudflare Worker free tier or Vercel Edge Function) to relay Moxfield requests. Archidekt has the same prod requirement but works in dev because their API doesn't use Cloudflare bot detection.
+- ~~**Plain text parser drops "Reanimate"** — Fixed: Scryfall's `/cards/collection` deduplicates DFC back-face names against standalones within the same batch. Added `separateDfcCollisions()` to defer standalone cards whose names match a DFC back face into a separate API request where they resolve correctly.~~
 
 ## Next Session
-- **Creature row rebalancing** — When split into 2 rows, prefer moving a card to row 2 over compressing row 1 if row 2 has room to spare
-- **Command zone stack behavior** — Show only top commander card, Alt+click to fan out for partner commanders (match library/graveyard/exile stack pattern instead of current flex-wrap layout)
-- **Enchant land auras** — Allow auras with "Enchant land" to attach to lands in rows 3/4 (currently only creatures are valid dock targets)
 - **Mutate** — Support mutate mechanic (stack creature cards, share abilities/P+T modifications)
-- **Browse graveyard/exile** — Searchable modal for graveyard and exile (like Library Browser) with move-to-zone actions
+- **Peek upgrade** — Scry/surveil/reveal support: reorder peeked cards, move individual cards to graveyard/bottom/hand, confirm final arrangement
 - **Turn counter** — Track current turn number, increment on Next Turn (N key)
 - **Life counter** — Track life total with +/- buttons, keyboard shortcuts, and visible HUD display
 

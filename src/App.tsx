@@ -13,6 +13,8 @@ import type { ContextMenuAction } from './components/ContextMenu'
 import { PeekModal } from './components/PeekModal'
 import { KeybindOverlay } from './components/KeybindOverlay'
 import { LibraryBrowser } from './components/LibraryBrowser'
+import { GraveyardBrowser } from './components/GraveyardBrowser'
+import { ExileBrowser } from './components/ExileBrowser'
 import { TokenPanel } from './components/TokenPanel'
 import { ToastProvider } from './contexts/ToastContext'
 import { resolveTokensForDeck, clearTokenCache } from './api/tokenResolver'
@@ -219,6 +221,12 @@ function AppContent() {
       case 'BROWSE_LIBRARY':
         setShowLibraryBrowser(true)
         break
+      case 'BROWSE_GRAVEYARD':
+        setShowGraveyardBrowser(true)
+        break
+      case 'BROWSE_EXILE':
+        setShowExileBrowser(true)
+        break
       case 'UNDO':
         undo()
         break
@@ -251,6 +259,8 @@ function AppContent() {
   const [showPeekModal, setShowPeekModal] = useState(false)
   const [showKeybindOverlay, setShowKeybindOverlay] = useState(false)
   const [showLibraryBrowser, setShowLibraryBrowser] = useState(false)
+  const [showGraveyardBrowser, setShowGraveyardBrowser] = useState(false)
+  const [showExileBrowser, setShowExileBrowser] = useState(false)
   const [revealedCardIds, setRevealedCardIds] = useState<Set<string>>(new Set())
 
   // Context menu state
@@ -479,8 +489,24 @@ function AppContent() {
         break
       case 'PLAY_TO_BATTLEFIELD':
         setGameState((prev: GameState) => {
-          try { return moveCard(prev, cardId, 'hand', 'battlefield') }
+          try { return moveCard(prev, cardId, cardZone, 'battlefield') }
           catch { return prev }
+        })
+        break
+      case 'PLAY_TAPPED':
+        setGameState((prev: GameState) => {
+          try {
+            const newState = moveCard(prev, cardId, cardZone, 'battlefield')
+            return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
+          } catch { return prev }
+        })
+        break
+      case 'PLAY_FACE_DOWN':
+        setGameState((prev: GameState) => {
+          try {
+            const newState = moveCard(prev, cardId, cardZone, 'battlefield')
+            return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
+          } catch { return prev }
         })
         break
       case 'PLAY_AS_BACK_FACE':
@@ -1124,7 +1150,7 @@ function AppContent() {
             return { ...prev, library: shuffled }
           })}
           onBrowseLibrary={() => setShowLibraryBrowser(true)}
-          onBrowseGraveyard={() => {}}
+          onBrowseGraveyard={() => setShowGraveyardBrowser(true)}
         />
         <HandTray
           cards={gameState.hand}
@@ -1250,8 +1276,61 @@ function AppContent() {
         }}
         onMoveCard={(cardId, destination) => {
           setGameState((prev: GameState) => {
-            try { return moveCard(prev, cardId, 'library', destination) }
-            catch { return prev }
+            try {
+              if (destination === 'battlefield-tapped') {
+                const newState = moveCard(prev, cardId, 'library', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
+              }
+              if (destination === 'battlefield-facedown') {
+                const newState = moveCard(prev, cardId, 'library', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
+              }
+              return moveCard(prev, cardId, 'library', destination)
+            } catch { return prev }
+          })
+        }}
+      />
+
+      {/* Graveyard Browser — Ctrl+Y opens searchable graveyard view */}
+      <GraveyardBrowser
+        cards={gameState.graveyard}
+        isOpen={showGraveyardBrowser}
+        onClose={() => setShowGraveyardBrowser(false)}
+        onMoveCard={(cardId, destination) => {
+          setGameState((prev: GameState) => {
+            try {
+              if (destination === 'battlefield-tapped') {
+                const newState = moveCard(prev, cardId, 'graveyard', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
+              }
+              if (destination === 'battlefield-facedown') {
+                const newState = moveCard(prev, cardId, 'graveyard', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
+              }
+              return moveCard(prev, cardId, 'graveyard', destination)
+            } catch { return prev }
+          })
+        }}
+      />
+
+      {/* Exile Browser — Ctrl+E opens searchable exile view */}
+      <ExileBrowser
+        cards={gameState.exile}
+        isOpen={showExileBrowser}
+        onClose={() => setShowExileBrowser(false)}
+        onMoveCard={(cardId, destination) => {
+          setGameState((prev: GameState) => {
+            try {
+              if (destination === 'battlefield-tapped') {
+                const newState = moveCard(prev, cardId, 'exile', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
+              }
+              if (destination === 'battlefield-facedown') {
+                const newState = moveCard(prev, cardId, 'exile', 'battlefield')
+                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
+              }
+              return moveCard(prev, cardId, 'exile', destination)
+            } catch { return prev }
           })
         }}
       />

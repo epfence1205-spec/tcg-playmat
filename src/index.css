@@ -15,19 +15,10 @@
    */
 }
 
-/*
- * Accessibility: Focus-visible outlines for keyboard navigation.
- * Only shows focus ring when navigating via keyboard (not mouse clicks).
- * Uses a high-contrast ring that works on both light and dark backgrounds.
- */
-*:focus-visible {
-  outline: 2px solid #facc15;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
 
-/* Remove default focus outline for mouse users */
-*:focus:not(:focus-visible) {
+
+/* Suppress browser focus outlines — app uses hover-based targeting, not tab navigation */
+*:focus {
   outline: none;
 }
 

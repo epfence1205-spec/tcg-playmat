@@ -39,16 +39,17 @@ function extractDeckId(url: string): string | null {
 
 /**
  * Parses a Moxfield API card map into DeckEntry[].
- * The API returns objects where keys are internal IDs and values contain card data.
+ * The v3 API returns objects where keys are unique card IDs and values contain card data.
+ * Card field mapping: name → card.name, set → card.set, collector_number → card.cn
  */
-function parseCardMap(cardMap: Record<string, { quantity: number; card?: { name?: string; set?: string; collector_number?: string } }>): DeckEntry[] {
+function parseCardMap(cardMap: Record<string, { quantity: number; card?: { name?: string; set?: string; cn?: string; collector_number?: string } }>): DeckEntry[] {
   const entries: DeckEntry[] = [];
 
   for (const [key, data] of Object.entries(cardMap)) {
     if (data.quantity > 0) {
       const name = data.card?.name ?? key;
       const set = data.card?.set ?? undefined;
-      const collectorNumber = data.card?.collector_number ?? undefined;
+      const collectorNumber = data.card?.cn ?? data.card?.collector_number ?? undefined;
       entries.push({ name, quantity: data.quantity, set, collectorNumber });
     }
   }
@@ -111,8 +112,10 @@ export async function fetchMoxfieldDeck(url: string): Promise<MoxfieldResult> {
 
   const data = await response.json();
 
-  const mainboard = parseCardMap(data.mainboard ?? {});
-  const commanders = parseCardMap(data.commanders ?? {});
+  // v3 API nests cards under data.boards.{zone}.cards
+  const boards = data.boards ?? {};
+  const mainboard = parseCardMap(boards.mainboard?.cards ?? {});
+  const commanders = parseCardMap(boards.commanders?.cards ?? {});
 
   return { mainboard, commanders };
 }

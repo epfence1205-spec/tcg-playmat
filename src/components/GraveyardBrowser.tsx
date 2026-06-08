@@ -1,23 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { CardData, Zone } from '../types';
 
-export interface LibraryBrowserProps {
-  /** All cards in the library */
+export interface GraveyardBrowserProps {
+  /** All cards in the graveyard */
   cards: CardData[];
   /** Whether the modal is open */
   isOpen: boolean;
   /** Close the modal */
   onClose: () => void;
-  /** Move a card from library to a destination zone */
+  /** Move a card from graveyard to a destination zone (or battlefield variant) */
   onMoveCard: (cardId: string, destination: Zone | 'battlefield-tapped' | 'battlefield-facedown') => void;
 }
 
 /**
- * LibraryBrowser — Modal for searching and browsing the library.
- * Triggered by Ctrl+F. Shows all library cards with a search filter.
- * Cards can be moved to hand, battlefield, graveyard, or exile.
+ * GraveyardBrowser — Modal for searching and browsing the graveyard.
+ * Triggered by Ctrl+Y. Shows all graveyard cards with a search filter.
+ * Cards can be moved to hand, battlefield, library, or exile.
  */
-export function LibraryBrowser({ cards, isOpen, onClose, onMoveCard }: LibraryBrowserProps) {
+export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: GraveyardBrowserProps) {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export function LibraryBrowser({ cards, isOpen, onClose, onMoveCard }: LibraryBr
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Library browser"
+      aria-label="Graveyard browser"
     >
       <div
         className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-[90vw] max-w-[900px] max-h-[80vh] flex flex-col"
@@ -66,7 +66,7 @@ export function LibraryBrowser({ cards, isOpen, onClose, onMoveCard }: LibraryBr
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-medium text-gray-200">
-            Library ({cards.length} cards)
+            Graveyard ({cards.length} cards)
           </h2>
           <button
             onClick={onClose}
@@ -90,12 +90,12 @@ export function LibraryBrowser({ cards, isOpen, onClose, onMoveCard }: LibraryBr
         <div className="flex-1 overflow-y-auto">
           {filteredCards.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
-              {search ? 'No cards match your search' : 'Library is empty'}
+              {search ? 'No cards match your search' : 'Graveyard is empty'}
             </p>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,93px)] gap-2 justify-center">
               {filteredCards.map((card) => (
-                <LibraryCard
+                <GraveyardCard
                   key={card.id}
                   card={card}
                   onMoveCard={onMoveCard}
@@ -106,14 +106,14 @@ export function LibraryBrowser({ cards, isOpen, onClose, onMoveCard }: LibraryBr
         </div>
 
         <p className="text-[10px] text-gray-500 mt-2 text-center">
-          Click a card for move options. Library will be shuffled on close.
+          Click a card for move options.
         </p>
       </div>
     </div>
   );
 }
 
-function LibraryCard({ card, onMoveCard }: { card: CardData; onMoveCard: (cardId: string, dest: Zone | 'battlefield-tapped' | 'battlefield-facedown') => void }) {
+function GraveyardCard({ card, onMoveCard }: { card: CardData; onMoveCard: (cardId: string, dest: Zone | 'battlefield-tapped' | 'battlefield-facedown') => void }) {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -121,7 +121,7 @@ function LibraryCard({ card, onMoveCard }: { card: CardData; onMoveCard: (cardId
       <img
         src={card.imageURI}
         alt={card.name}
-        className="w-[93px] h-[130px] object-cover rounded-md shadow cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
+        className="w-[93px] h-[130px] object-cover rounded-md shadow cursor-pointer hover:ring-2 hover:ring-purple-400 transition-all"
         draggable={false}
         onClick={() => setShowActions(!showActions)}
         title={card.name}
@@ -154,9 +154,9 @@ function LibraryCard({ card, onMoveCard }: { card: CardData; onMoveCard: (cardId
           </button>
           <button
             className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'graveyard'); setShowActions(false); }}
+            onClick={() => { onMoveCard(card.id, 'library'); setShowActions(false); }}
           >
-            → Graveyard
+            → Library (top)
           </button>
           <button
             className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"

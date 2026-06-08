@@ -77,12 +77,18 @@ describe('fetchMoxfieldDeck', () => {
 
   it('fetches and parses a deck with mainboard and commanders', async () => {
     const mockResponse = {
-      mainboard: {
-        'Lightning Bolt': { quantity: 4 },
-        'Mountain': { quantity: 20 },
-      },
-      commanders: {
-        'Krenko, Mob Boss': { quantity: 1 },
+      boards: {
+        mainboard: {
+          cards: {
+            'abc1': { quantity: 4, card: { name: 'Lightning Bolt' } },
+            'abc2': { quantity: 20, card: { name: 'Mountain' } },
+          },
+        },
+        commanders: {
+          cards: {
+            'abc3': { quantity: 1, card: { name: 'Krenko, Mob Boss' } },
+          },
+        },
       },
     };
 
@@ -107,17 +113,23 @@ describe('fetchMoxfieldDeck', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/moxfield/v3/decks/all/test123',
       expect.objectContaining({
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', 'User-Agent': 'TCGPlaymat/1.0' },
       })
     );
   });
 
   it('handles deck with no commanders', async () => {
     const mockResponse = {
-      mainboard: {
-        'Sol Ring': { quantity: 1 },
+      boards: {
+        mainboard: {
+          cards: {
+            'xyz1': { quantity: 1, card: { name: 'Sol Ring' } },
+          },
+        },
+        commanders: {
+          cards: {},
+        },
       },
-      commanders: {},
     };
 
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -135,7 +147,7 @@ describe('fetchMoxfieldDeck', () => {
   });
 
   it('handles missing mainboard/commanders fields gracefully', async () => {
-    const mockResponse = {};
+    const mockResponse = { boards: {} };
 
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -196,8 +208,10 @@ describe('fetchMoxfieldDeck', () => {
 
   it('extracts deck ID from URL with trailing slash', async () => {
     const mockResponse = {
-      mainboard: { 'Island': { quantity: 1 } },
-      commanders: {},
+      boards: {
+        mainboard: { cards: { 'id1': { quantity: 1, card: { name: 'Island' } } } },
+        commanders: { cards: {} },
+      },
     };
 
     globalThis.fetch = vi.fn().mockResolvedValue({

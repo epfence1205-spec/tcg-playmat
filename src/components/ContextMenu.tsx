@@ -20,6 +20,8 @@ export type ContextMenuAction =
   | { type: 'DELETE' }
   | { type: 'REVEAL' }
   | { type: 'PLAY_TO_BATTLEFIELD' }
+  | { type: 'PLAY_TAPPED' }
+  | { type: 'PLAY_FACE_DOWN' }
   | { type: 'PLAY_AS_BACK_FACE' };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -369,6 +371,8 @@ export function ContextMenu({
   const renderHandMenu = () => (
     <>
       {renderMenuItem('Play to Battlefield', 'B', () => handleAction({ type: 'PLAY_TO_BATTLEFIELD' }))}
+      {renderMenuItem('Play Tapped', null, () => handleAction({ type: 'PLAY_TAPPED' }))}
+      {renderMenuItem('Play Face-Down', null, () => handleAction({ type: 'PLAY_FACE_DOWN' }))}
       {isDFC && renderMenuItem('Play as Back Face', null, () => handleAction({ type: 'PLAY_AS_BACK_FACE' }))}
       {renderDivider()}
       <div className="relative" onMouseEnter={() => openSubmenu('move-to')} onMouseLeave={closeSubmenuDelayed}>
@@ -384,6 +388,10 @@ export function ContextMenu({
 
   const renderStackZoneMenu = () => (
     <>
+      {renderMenuItem('Play to Battlefield', 'B', () => handleAction({ type: 'PLAY_TO_BATTLEFIELD' }))}
+      {renderMenuItem('Play Tapped', null, () => handleAction({ type: 'PLAY_TAPPED' }))}
+      {renderMenuItem('Play Face-Down', null, () => handleAction({ type: 'PLAY_FACE_DOWN' }))}
+      {renderDivider()}
       <div className="relative" onMouseEnter={() => openSubmenu('move-to')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Move to', 'move-to')}
         {renderMoveToSubmenu()}

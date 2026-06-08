@@ -120,9 +120,97 @@ function buildScryfallIdentifiers(
 }
 
 /**
+ * Separates identifiers that would collide when batched together.
+ *
+ * Scryfall's /cards/collection deduplicates within a batch: if a DFC front face
+ * (e.g. "Grave Researcher") and a standalone card matching the back face name
+ * (e.g. "Reanimate") are sent together without set codes, Scryfall returns the
+ * DFC for both. We detect these collisions and defer the standalone to a
+ * separate request where it resolves correctly in isolation.
+ *
+ * Only applies to name-only lookups (no set code). Set-coded identifiers are
+ * always safe because Scryfall disambiguates by set.
+ */
+function separateDfcCollisions(
+  identifiers: CardIdentifier[]
+): { primary: CardIdentifier[]; deferred: CardIdentifier[] } {
+  // Collect back-face names from all DFC identifiers that lack a set code
+  const backFaceNames = new Set<string>();
+  for (const id of identifiers) {
+    if (!id.set && id.name.includes(' // ')) {
+      const backFace = id.name.split(' // ').slice(1).join(' // ').trim().toLowerCase();
+      backFaceNames.add(backFace);
+    }
+  }
+
+  // If no DFCs without set codes, no collision possible
+  if (backFaceNames.size === 0) {
+    return { primary: identifiers, deferred: [] };
+  }
+
+  // Any standalone identifier (no " // ", no set code) whose name matches a
+  // back face gets deferred to a separate batch
+  const primary: CardIdentifier[] = [];
+  const deferred: CardIdentifier[] = [];
+
+  for (const id of identifiers) {
+    if (!id.set && !id.name.includes(' // ') && backFaceNames.has(id.name.toLowerCase())) {
+      deferred.push(id);
+    } else {
+      primary.push(id);
+    }
+  }
+
+  return { primary, deferred };
+}
+
+/**
+ * Executes a single batch request against Scryfall /cards/collection.
+ * Returns resolved cards and failures for the batch.
+ */
+async function executeBatch(
+  batch: CardIdentifier[]
+): Promise<{ data: ScryfallCard[]; notFound: string[] }> {
+  const scryfallIdentifiers = buildScryfallIdentifiers(batch);
+  const data: ScryfallCard[] = [];
+  const notFound: string[] = [];
+
+  try {
+    const response = await fetch(SCRYFALL_COLLECTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'TCGPlaymat/1.0',
+      },
+      body: JSON.stringify({ identifiers: scryfallIdentifiers }),
+    });
+
+    if (!response.ok) {
+      notFound.push(...batch.map((id) => id.name));
+    } else {
+      const json = await response.json();
+      if (json.data) {
+        data.push(...(json.data as ScryfallCard[]));
+      }
+      if (json.not_found) {
+        for (const nf of json.not_found) {
+          notFound.push(nf.name);
+        }
+      }
+    }
+  } catch {
+    notFound.push(...batch.map((id) => id.name));
+  }
+
+  return { data, notFound };
+}
+
+/**
  * Resolves an array of card identifiers against the Scryfall /cards/collection endpoint.
  *
  * - Accepts plain card names (strings) or structured identifiers with optional set code
+ * - Detects DFC back-face name collisions and resolves them in a separate request
  * - Batches identifiers into groups of 75 (Scryfall's max per request)
  * - Enforces minimum 50ms delay between consecutive requests
  * - Returns resolved cards and a list of failures
@@ -147,7 +235,10 @@ export async function resolveCards(
     return { resolved, failures };
   }
 
-  const batches = chunk(identifiers, BATCH_SIZE);
+  // Separate DFC back-face collisions into a deferred batch
+  const { primary, deferred } = separateDfcCollisions(identifiers);
+
+  const batches = chunk(primary, BATCH_SIZE);
 
   for (let i = 0; i < batches.length; i++) {
     // Enforce rate limiting: wait at least 50ms between consecutive requests
@@ -155,53 +246,41 @@ export async function resolveCards(
       await delay(MIN_DELAY_MS);
     }
 
-    const batch = batches[i];
-    const scryfallIdentifiers = buildScryfallIdentifiers(batch);
+    const { data, notFound } = await executeBatch(batches[i]);
 
-    try {
-      const response = await fetch(SCRYFALL_COLLECTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'TCGPlaymat/1.0',
-        },
-        body: JSON.stringify({ identifiers: scryfallIdentifiers }),
-      });
+    for (const card of data) {
+      resolved.set(card.name, card);
+      if (card.name.includes(' // ')) {
+        resolved.set(card.name.split(' // ')[0].trim(), card);
+      }
+    }
+    failures.push(...notFound);
 
-      if (!response.ok) {
-        // If the request fails, mark all cards in this batch as failures
-        // but do NOT throw — allow other batches to proceed
-        failures.push(...batch.map((id) => id.name));
-      } else {
-        const data = await response.json();
+    options?.onProgress?.(resolved.size, total);
+  }
 
-        // Process resolved cards
-        if (data.data) {
-          for (const card of data.data as ScryfallCard[]) {
-            // Store under the full Scryfall name
-            resolved.set(card.name, card);
-            // Also store under the front face name for DFC lookup
-            if (card.name.includes(' // ')) {
-              resolved.set(card.name.split(' // ')[0].trim(), card);
-            }
-          }
-        }
+  // Resolve deferred colliders in a separate batch (isolated from DFC front faces)
+  if (deferred.length > 0) {
+    await delay(MIN_DELAY_MS);
 
-        // Process not-found cards
-        if (data.not_found) {
-          for (const nf of data.not_found) {
-            failures.push(nf.name);
-          }
+    const deferredBatches = chunk(deferred, BATCH_SIZE);
+    for (let i = 0; i < deferredBatches.length; i++) {
+      if (i > 0) {
+        await delay(MIN_DELAY_MS);
+      }
+
+      const { data, notFound } = await executeBatch(deferredBatches[i]);
+
+      for (const card of data) {
+        resolved.set(card.name, card);
+        if (card.name.includes(' // ')) {
+          resolved.set(card.name.split(' // ')[0].trim(), card);
         }
       }
-    } catch {
-      // Network errors: mark batch as failures without blocking other batches
-      failures.push(...batch.map((id) => id.name));
-    }
+      failures.push(...notFound);
 
-    // Report progress after each batch
-    options?.onProgress?.(resolved.size, total);
+      options?.onProgress?.(resolved.size, total);
+    }
   }
 
   return { resolved, failures };

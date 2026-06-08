@@ -28,6 +28,7 @@ interface DeckImportModalProps {
  */
 export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImportModalProps) {
   const [decklistText, setDecklistText] = useState('');
+  const [commanderText, setCommanderText] = useState('');
   const [deckUrl, setDeckUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState<{ resolved: number; total: number } | null>(null);
@@ -93,8 +94,15 @@ export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImpor
         } else {
           entries = parsePlainText(textTrimmed);
         }
-        // No commander detection for paste imports
-        commanderNames = [];
+        // Parse commander names from the commander textarea (run through parser for quantity prefix handling)
+        const commanderEntries = parsePlainText(commanderText);
+        commanderNames = commanderEntries.map((e) => e.name);
+        // Add commanders to entries so they get resolved by Scryfall
+        for (const ce of commanderEntries) {
+          if (!entries.some((e) => e.name.toLowerCase() === ce.name.toLowerCase())) {
+            entries.push(ce);
+          }
+        }
       }
 
       if (entries.length === 0) {
@@ -156,6 +164,7 @@ export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImpor
 
   function resetState() {
     setDecklistText('');
+    setCommanderText('');
     setDeckUrl('');
     setFailures([]);
     setError(null);
@@ -206,6 +215,22 @@ export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImpor
             )}
           </div>
         )}
+
+        {/* Commander input — 2-line textarea for commander name(s) */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="commander-text" className="text-sm text-gray-400">
+            Commander (one per line for partners)
+          </label>
+          <textarea
+            id="commander-text"
+            className="w-full resize-none rounded-lg bg-gray-800 border border-gray-600 text-gray-100 text-sm p-3 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder={"Atraxa, Praetors' Voice"}
+            rows={2}
+            value={commanderText}
+            onChange={(e) => setCommanderText(e.target.value)}
+            disabled={isImporting}
+          />
+        </div>
 
         {/* Text area for decklist paste */}
         <div className="flex flex-col gap-1.5">

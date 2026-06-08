@@ -46,8 +46,10 @@ const KEYBIND_SECTIONS = [
     title: 'Other',
     binds: [
       { key: 'Alt+1-9', desc: 'Peek top N cards' },
-      { key: 'Ctrl+E', desc: 'Equip mode' },
       { key: 'Ctrl+F', desc: 'Browse library' },
+      { key: 'Ctrl+Y', desc: 'Browse graveyard' },
+      { key: 'Ctrl+E', desc: 'Browse exile' },
+      { key: 'Alt+E', desc: 'Equip mode' },
       { key: 'Ctrl+Z', desc: 'Undo' },
       { key: '?', desc: 'Toggle this overlay' },
     ],

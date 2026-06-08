@@ -161,13 +161,11 @@ function DroppableCardSlot({ el, onTapCard, onEquipmentAction, style, isCompress
       style={{ width: el.isTapped ? '16vh' : '11.43vh', height: '16vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', opacity: isBeingDragged ? 0.3 : 1, ...style }}
     >
       <div className="relative" style={{ transform: el.isTapped ? 'rotate(90deg)' : undefined, transition: 'transform 200ms ease', width: '11.43vh', height: '16vh' }}>
-        <DraggableCard
-          card={el.card}
-          sourceZone="battlefield"
-          isTapped={false}
-          isFaceDown={el.isFaceDown}
-          showingBackFace={el.showingBackFace}
-          onClick={onTapCard}
+        <img
+          src={el.isFaceDown ? '/card-back.webp' : el.showingBackFace && el.card.backFaceImageURI ? el.card.backFaceImageURI : el.card.imageURI}
+          alt={el.isFaceDown ? 'Face-down card' : el.card.name}
+          className="w-full h-full rounded-md pointer-events-none object-cover"
+          draggable={false}
         />
         {el.counters.length > 0 && (
           <div className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none" style={{ maxWidth: '10vh' }}>

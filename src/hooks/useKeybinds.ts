@@ -13,6 +13,8 @@ export type GameAction =
   | { type: 'NEW_GAME' }
   | { type: 'SHUFFLE' }
   | { type: 'BROWSE_LIBRARY' }
+  | { type: 'BROWSE_GRAVEYARD' }
+  | { type: 'BROWSE_EXILE' }
   | { type: 'UNDO' }
   | { type: 'TOGGLE_KEYBIND_OVERLAY' }
   | { type: 'MOVE_CARD'; cardId: string; destination: Zone }
@@ -97,26 +99,35 @@ export function useKeybinds({
             e.preventDefault();
             onAction({ type: 'BROWSE_LIBRARY' });
             return;
+          case 'y':
+            e.preventDefault();
+            onAction({ type: 'BROWSE_GRAVEYARD' });
+            return;
           case 'z':
             e.preventDefault();
             onAction({ type: 'UNDO' });
             return;
           case 'e':
             e.preventDefault();
-            if (hoveredCardId) {
-              dispatchCardAction({ type: 'EQUIP_MODE', cardId: hoveredCardId });
-            }
+            onAction({ type: 'BROWSE_EXILE' });
             return;
         }
         return;
       }
 
-      // ─── Alt+Number Shortcuts (Peek) ─────────────────────────────────
+      // ─── Alt+Key Shortcuts (Peek + Equip) ──────────────────────────────
       if (alt && !ctrl) {
         const num = parseInt(e.key, 10);
         if (num >= 1 && num <= 9) {
           e.preventDefault();
           onAction({ type: 'PEEK', count: num });
+          return;
+        }
+        if (key === 'e') {
+          e.preventDefault();
+          if (hoveredCardId) {
+            dispatchCardAction({ type: 'EQUIP_MODE', cardId: hoveredCardId });
+          }
           return;
         }
         return;
