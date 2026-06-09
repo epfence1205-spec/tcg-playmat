@@ -12,9 +12,8 @@ import { ContextMenu } from './components/ContextMenu'
 import type { ContextMenuAction } from './components/ContextMenu'
 import { PeekModal } from './components/PeekModal'
 import { KeybindOverlay } from './components/KeybindOverlay'
-import { LibraryBrowser } from './components/LibraryBrowser'
-import { GraveyardBrowser } from './components/GraveyardBrowser'
-import { ExileBrowser } from './components/ExileBrowser'
+import { ZoneBrowser } from './components/ZoneBrowser'
+import type { ZoneBrowserCard, ZoneBrowserDestination } from './components/ZoneBrowser'
 import { TokenPanel } from './components/TokenPanel'
 import { ToastProvider } from './contexts/ToastContext'
 import { resolveTokensForDeck, clearTokenCache } from './api/tokenResolver'
@@ -30,7 +29,7 @@ import { addCounter, removeCounter } from './counterActions'
 import { attachEquipment, detachEquipment } from './equipmentActions'
 import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
 import { initializeMulligan } from './mulliganEngine'
-import { CreatureOuterDiv } from './components/CreatureOuterDiv'
+import { RotationDiv } from './components/RotationDiv'
 import type { GameState, CardData, Zone, RowTarget, CardType } from './types'
 
 /**
@@ -358,6 +357,27 @@ function AppContent() {
     document.addEventListener('contextmenu', handleGlobalContextMenu)
     return () => document.removeEventListener('contextmenu', handleGlobalContextMenu)
   }, [hoveredCardData, handleCardContextMenu])
+
+  /** Handles zone browser move actions (library/graveyard/exile → destination) */
+  const handleZoneBrowserMove = (cardId: string, sourceZone: Zone, destination: ZoneBrowserDestination) => {
+    setGameState((prev: GameState) => {
+      try {
+        if (destination === 'battlefield-tapped') {
+          const newState = moveCard(prev, cardId, sourceZone, 'battlefield')
+          return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
+        }
+        if (destination === 'battlefield-facedown') {
+          const newState = moveCard(prev, cardId, sourceZone, 'battlefield')
+          return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
+        }
+        if (destination === 'battlefield-backface') {
+          const newState = moveCard(prev, cardId, sourceZone, 'battlefield')
+          return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, showingBackFace: true }))
+        }
+        return moveCard(prev, cardId, sourceZone, destination as Zone)
+      } catch { return prev }
+    })
+  }
 
   /** Handles context menu action dispatch */
   const handleContextMenuAction = useCallback((action: ContextMenuAction) => {
@@ -1266,73 +1286,67 @@ function AppContent() {
       />
 
       {/* Library Browser — Ctrl+F opens searchable library view */}
-      <LibraryBrowser
-        cards={gameState.library}
+      <ZoneBrowser
+        zoneName="Library"
+        sourceZone="library"
+        cards={gameState.library as ZoneBrowserCard[]}
         isOpen={showLibraryBrowser}
         onClose={() => {
           setShowLibraryBrowser(false)
-          // Shuffle library after browsing (standard MTG rule)
           setGameState((prev: GameState) => shuffleLibrary(prev))
         }}
-        onMoveCard={(cardId, destination) => {
-          setGameState((prev: GameState) => {
-            try {
-              if (destination === 'battlefield-tapped') {
-                const newState = moveCard(prev, cardId, 'library', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
-              }
-              if (destination === 'battlefield-facedown') {
-                const newState = moveCard(prev, cardId, 'library', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
-              }
-              return moveCard(prev, cardId, 'library', destination)
-            } catch { return prev }
-          })
-        }}
+        onMoveCard={(cardId, destination) => handleZoneBrowserMove(cardId, 'library', destination)}
+        destinations={[
+          { label: '→ Battlefield', destination: 'battlefield' },
+          { label: '→ Battlefield (tapped)', destination: 'battlefield-tapped' },
+          { label: '→ Battlefield (face-down)', destination: 'battlefield-facedown' },
+          { label: '→ Battlefield (back face)', destination: 'battlefield-backface' },
+          { label: '→ Hand', destination: 'hand' },
+          { label: '→ Graveyard', destination: 'graveyard' },
+          { label: '→ Exile', destination: 'exile' },
+        ]}
+        ringColor="ring-blue-400"
+        footerText="Click a card for move options. Library will be shuffled on close."
       />
 
       {/* Graveyard Browser — Ctrl+Y opens searchable graveyard view */}
-      <GraveyardBrowser
-        cards={gameState.graveyard}
+      <ZoneBrowser
+        zoneName="Graveyard"
+        sourceZone="graveyard"
+        cards={gameState.graveyard as ZoneBrowserCard[]}
         isOpen={showGraveyardBrowser}
         onClose={() => setShowGraveyardBrowser(false)}
-        onMoveCard={(cardId, destination) => {
-          setGameState((prev: GameState) => {
-            try {
-              if (destination === 'battlefield-tapped') {
-                const newState = moveCard(prev, cardId, 'graveyard', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
-              }
-              if (destination === 'battlefield-facedown') {
-                const newState = moveCard(prev, cardId, 'graveyard', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
-              }
-              return moveCard(prev, cardId, 'graveyard', destination)
-            } catch { return prev }
-          })
-        }}
+        onMoveCard={(cardId, destination) => handleZoneBrowserMove(cardId, 'graveyard', destination)}
+        destinations={[
+          { label: '→ Battlefield', destination: 'battlefield' },
+          { label: '→ Battlefield (tapped)', destination: 'battlefield-tapped' },
+          { label: '→ Battlefield (face-down)', destination: 'battlefield-facedown' },
+          { label: '→ Battlefield (back face)', destination: 'battlefield-backface' },
+          { label: '→ Hand', destination: 'hand' },
+          { label: '→ Library (top)', destination: 'library' },
+          { label: '→ Exile', destination: 'exile' },
+        ]}
+        ringColor="ring-purple-400"
       />
 
       {/* Exile Browser — Ctrl+E opens searchable exile view */}
-      <ExileBrowser
-        cards={gameState.exile}
+      <ZoneBrowser
+        zoneName="Exile"
+        sourceZone="exile"
+        cards={gameState.exile.map(ec => ({ ...ec.card, isFaceDown: ec.isFaceDown } as ZoneBrowserCard))}
         isOpen={showExileBrowser}
         onClose={() => setShowExileBrowser(false)}
-        onMoveCard={(cardId, destination) => {
-          setGameState((prev: GameState) => {
-            try {
-              if (destination === 'battlefield-tapped') {
-                const newState = moveCard(prev, cardId, 'exile', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isTapped: true }))
-              }
-              if (destination === 'battlefield-facedown') {
-                const newState = moveCard(prev, cardId, 'exile', 'battlefield')
-                return updateBattlefieldCard(newState, cardId, rc => ({ ...rc, isFaceDown: true }))
-              }
-              return moveCard(prev, cardId, 'exile', destination)
-            } catch { return prev }
-          })
-        }}
+        onMoveCard={(cardId, destination) => handleZoneBrowserMove(cardId, 'exile', destination)}
+        destinations={[
+          { label: '→ Battlefield', destination: 'battlefield' },
+          { label: '→ Battlefield (tapped)', destination: 'battlefield-tapped' },
+          { label: '→ Battlefield (face-down)', destination: 'battlefield-facedown' },
+          { label: '→ Battlefield (back face)', destination: 'battlefield-backface' },
+          { label: '→ Hand', destination: 'hand' },
+          { label: '→ Library (top)', destination: 'library' },
+          { label: '→ Graveyard', destination: 'graveyard' },
+        ]}
+        ringColor="ring-orange-400"
       />
 
       {/* Token Panel — create tokens from deck or search */}
@@ -1400,7 +1414,7 @@ function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: Gam
     if (bfCard.attachments.length > 0) {
       return (
         <div className="pointer-events-none" style={{ willChange: 'transform' }}>
-          <CreatureOuterDiv
+          <RotationDiv
             creature={bfCard}
             isCompressed={false}
             onTapCard={() => {}}

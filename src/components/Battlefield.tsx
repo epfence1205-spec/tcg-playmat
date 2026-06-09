@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { useDroppable, useDndContext } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableCardWrapper } from './SortableCardWrapper';
 import type {
@@ -8,226 +8,10 @@ import type {
   RowTarget,
   RowCard,
   GamePhase,
-  KeywordAbility,
 } from '../types';
-import { DraggableCard } from './DraggableCard';
-import { EquipmentDock } from './EquipmentDock';
-import { CreatureOuterDiv } from './CreatureOuterDiv';
+import { RotationDiv } from './RotationDiv';
 import { computeCompression } from '../creatureLayout';
 import type { EquipmentAction } from './EquipmentDock';
-import { createRowCard } from '../gameActions';
-import { calculateEffectiveStats, parseKeywords } from '../keywords';
-
-/**
- * DroppableCardSlot — Wraps a DraggableCard with a droppable target.
- * This allows equipment/auras to be dropped directly onto creatures.
- * When the card has attachments, renders using EquipmentDock for proper
- * cascade-left layout with sideways name labels.
- */
-function DroppableCardSlot({ el, onTapCard, onEquipmentAction, style, isCompressed }: {
-  el: RowCard;
-  onTapCard: (cardId: string) => void;
-  onEquipmentAction?: (action: import('./EquipmentDock').EquipmentAction) => void;
-  style?: React.CSSProperties;
-  isCompressed?: boolean;
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `card-drop-${el.instanceId}`,
-    data: {
-      cardId: el.instanceId,
-      cardType: el.card.cardType,
-    },
-  });
-
-  // Detect if this card is currently being dragged (to hide the whole slot)
-  const { active } = useDndContext();
-  const isBeingDragged = active?.id === el.instanceId;
-
-  const hasAttachments = el.attachments.length > 0;
-
-  if (hasAttachments) {
-    const attachmentRowCards = el.attachments.map((att) =>
-      createRowCard(att.card, el.rowAssignment, 0)
-    );
-    const effectiveStats = calculateEffectiveStats(el, attachmentRowCards);
-
-    const grantedKeywords: KeywordAbility[] = [];
-    for (const att of el.attachments) {
-      const kws = parseKeywords(att.card.oracleText);
-      for (const kw of kws) {
-        if (!grantedKeywords.includes(kw)) {
-          grantedKeywords.push(kw);
-        }
-      }
-    }
-
-    return (
-      <div
-        ref={setNodeRef}
-        className={`flex-shrink-0 relative flex items-center justify-center ${isOver ? 'ring-2 ring-yellow-400 rounded-md' : ''}`}
-        style={{
-          marginLeft: el.isTapped ? '0px' : `${el.attachments.length * 2}vh`,
-          width: el.isTapped ? '16vh' : '11.43vh',
-          height: '16vh',
-          overflow: 'visible',
-          opacity: isBeingDragged ? 0.3 : 1,
-          ...style,
-        }}
-      >
-        <EquipmentDock
-          creature={el}
-          attachments={attachmentRowCards}
-          effectiveStats={effectiveStats}
-          onAction={(action) => onEquipmentAction?.(action)}
-          onTapCard={onTapCard}
-        />
-        {grantedKeywords.length > 0 && (
-          <div
-            className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none"
-            style={{ zIndex: el.attachments.length + 5, maxWidth: '10vh' }}
-          >
-            {grantedKeywords.map((kw) => (
-              <span
-                key={kw}
-                className="bg-blue-600 text-white font-bold rounded shadow-lg uppercase tracking-wide"
-                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
-              >
-                {kw.replace(/_/g, ' ')}
-              </span>
-            ))}
-          </div>
-        )}
-        {el.counters.length > 0 && (
-          <div
-            className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none"
-            style={{ zIndex: el.attachments.length + 5, maxWidth: '10vh' }}
-          >
-            {el.counters.map((counter, idx) => (
-              <span
-                key={`${counter.type}-${idx}`}
-                className="bg-black/80 text-white font-bold rounded shadow"
-                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
-              >
-                {counter.type === '+1/+1' || counter.type === '-1/-1'
-                  ? `${counter.type} ×${counter.value}`
-                  : `${counter.type}: ${counter.value}`}
-              </span>
-            ))}
-          </div>
-        )}
-        {/* Vertical name + modified P/T banner for equipped creatures */}
-        {isCompressed && (
-          <div
-            className="absolute top-0 left-0 h-full flex flex-col items-center justify-center pointer-events-none"
-            style={{ width: '2.2vh', zIndex: el.attachments.length + 5 }}
-          >
-            <span
-              className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
-              style={{
-                fontSize: '1.2vh',
-                writingMode: 'vertical-rl',
-                textOrientation: 'mixed',
-                transform: 'rotate(180deg)',
-                flexShrink: 0,
-              }}
-            >
-              {effectiveStats.modifiedPower}/{effectiveStats.modifiedToughness}
-            </span>
-            <span
-              className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
-              style={{
-                fontSize: '1vh',
-                writingMode: 'vertical-rl',
-                textOrientation: 'mixed',
-                transform: 'rotate(180deg)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                flexShrink: 1,
-                minHeight: 0,
-              }}
-            >
-              {el.showingBackFace && el.card.backFaceName ? el.card.backFaceName : el.card.name}
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`transition-all duration-300 ease-in-out flex-shrink-0 relative ${isOver ? 'ring-2 ring-yellow-400 rounded-md' : ''}`}
-      style={{ width: el.isTapped ? '16vh' : '11.43vh', height: '16vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', opacity: isBeingDragged ? 0.3 : 1, ...style }}
-    >
-      <div className="relative" style={{ transform: el.isTapped ? 'rotate(90deg)' : undefined, transition: 'transform 200ms ease', width: '11.43vh', height: '16vh' }}>
-        <img
-          src={el.isFaceDown ? '/card-back.webp' : el.showingBackFace && el.card.backFaceImageURI ? el.card.backFaceImageURI : el.card.imageURI}
-          alt={el.isFaceDown ? 'Face-down card' : el.card.name}
-          className="w-full h-full rounded-md pointer-events-none object-cover"
-          draggable={false}
-        />
-        {el.counters.length > 0 && (
-          <div className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center pointer-events-none" style={{ maxWidth: '10vh' }}>
-            {el.counters.map((counter, idx) => (
-              <span
-                key={`${counter.type}-${idx}`}
-                className="bg-black/80 text-white font-bold rounded shadow"
-                style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}
-              >
-                {counter.type === '+1/+1' || counter.type === '-1/-1'
-                  ? `${counter.type} ×${counter.value}`
-                  : `${counter.type}: ${counter.value}`}
-              </span>
-            ))}
-          </div>
-        )}
-        {el.isPhased && (
-          <div className="absolute inset-0 bg-gray-900/60 rounded-md pointer-events-none flex items-center justify-center">
-            <span className="text-gray-300 text-[10px] font-bold">PHASED</span>
-          </div>
-        )}
-        {/* Vertical name + P/T banner — inside rotating div so it rotates with the card */}
-        {isCompressed && (
-          <div
-            className="absolute top-0 left-0 h-full flex flex-col items-center justify-center pointer-events-none"
-            style={{ width: '2.2vh', zIndex: 20 }}
-          >
-            {el.card.cardType === 'creature' && (el.showingBackFace ? el.card.backFacePower : el.card.basePower) != null && (
-              <span
-                className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
-                style={{
-                  fontSize: '1.2vh',
-                  writingMode: 'vertical-rl',
-                  textOrientation: 'mixed',
-                  transform: 'rotate(180deg)',
-                  flexShrink: 0,
-                }}
-              >
-                {el.showingBackFace ? `${el.card.backFacePower}/${el.card.backFaceToughness}` : `${el.card.basePower}/${el.card.baseToughness}`}
-              </span>
-            )}
-            <span
-              className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow"
-              style={{
-                fontSize: '1vh',
-                writingMode: 'vertical-rl',
-                textOrientation: 'mixed',
-                transform: 'rotate(180deg)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                flexShrink: 1,
-                minHeight: 0,
-              }}
-            >
-              {el.showingBackFace && el.card.backFaceName ? el.card.backFaceName : el.card.name}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -485,7 +269,7 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
             isCollapsing={collapsingIds?.has(el.instanceId)}
             style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
           >
-            <CreatureOuterDiv
+            <RotationDiv
               creature={el}
               onTapCard={onTapCard}
               onEquipmentAction={onEquipmentAction}
@@ -644,10 +428,11 @@ function SplitRowTrack({
                 isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
               >
-                <DroppableCardSlot
-                  el={el}
+                <RotationDiv
+                  creature={el}
                   onTapCard={onTapCard}
                   onEquipmentAction={onEquipmentAction}
+                  isCompressed={leftMargin > 0}
                 />
               </SortableCardWrapper>
             );
@@ -690,10 +475,11 @@ function SplitRowTrack({
                 isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
               >
-                <DroppableCardSlot
-                  el={el}
+                <RotationDiv
+                  creature={el}
                   onTapCard={onTapCard}
                   onEquipmentAction={onEquipmentAction}
+                  isCompressed={rightMargin > 0}
                 />
               </SortableCardWrapper>
             );
@@ -737,11 +523,12 @@ function PWBattleColumn({ cards, onTapCard, onEquipmentAction }: PWBattleColumnP
       aria-label="Planeswalker and Battle column"
     >
       {cards.map((el) => (
-        <DroppableCardSlot
+        <RotationDiv
           key={el.instanceId}
-          el={el}
+          creature={el}
           onTapCard={onTapCard}
           onEquipmentAction={onEquipmentAction}
+          isCompressed={false}
         />
       ))}
     </div>

@@ -1,41 +1,70 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { CardData, Zone } from '../types';
+import type { Zone } from '../types';
 
-export interface GraveyardBrowserProps {
-  /** All cards in the graveyard */
-  cards: CardData[];
+export type ZoneBrowserDestination = Zone | 'battlefield-tapped' | 'battlefield-facedown' | 'battlefield-backface';
+
+export interface ZoneBrowserCard {
+  id: string;
+  name: string;
+  typeLine: string;
+  oracleText: string;
+  imageURI: string;
+  isFaceDown?: boolean;
+  backFaceImageURI?: string | null;
+}
+
+export interface ZoneBrowserProps {
+  /** Zone label displayed in the header */
+  zoneName: string;
+  /** Zone identifier for data attributes */
+  sourceZone: Zone;
+  /** Cards to display */
+  cards: ZoneBrowserCard[];
   /** Whether the modal is open */
   isOpen: boolean;
   /** Close the modal */
   onClose: () => void;
-  /** Move a card from graveyard to a destination zone (or battlefield variant) */
-  onMoveCard: (cardId: string, destination: Zone | 'battlefield-tapped' | 'battlefield-facedown') => void;
+  /** Move a card to a destination */
+  onMoveCard: (cardId: string, destination: ZoneBrowserDestination) => void;
+  /** Available move destinations (order preserved in action menu) */
+  destinations: { label: string; destination: ZoneBrowserDestination }[];
+  /** Hover ring color class (e.g. 'ring-blue-400') */
+  ringColor?: string;
+  /** Footer text */
+  footerText?: string;
 }
 
+const CARD_BACK_URL = '/card-back.webp';
+
 /**
- * GraveyardBrowser — Modal for searching and browsing the graveyard.
- * Triggered by Ctrl+Y. Shows all graveyard cards with a search filter.
- * Cards can be moved to hand, battlefield, library, or exile.
+ * ZoneBrowser — Universal searchable modal for browsing any card zone.
+ * Used for library (Ctrl+F), graveyard (Ctrl+Y), and exile (Ctrl+E).
  */
-export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: GraveyardBrowserProps) {
+export function ZoneBrowser({
+  zoneName,
+  sourceZone,
+  cards,
+  isOpen,
+  onClose,
+  onMoveCard,
+  destinations,
+  ringColor = 'ring-blue-400',
+  footerText = 'Click a card for move options.',
+}: ZoneBrowserProps) {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!isOpen) {
-      setSearch('');
-    }
+    if (!isOpen) setSearch('');
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
-
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
         onClose();
       }
     }
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
@@ -58,7 +87,7 @@ export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: Graveya
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Graveyard browser"
+      aria-label={`${zoneName} browser`}
     >
       <div
         className="bg-gray-900 border border-gray-700 rounded-xl p-4 shadow-2xl w-[90vw] max-w-[900px] max-h-[80vh] flex flex-col"
@@ -66,7 +95,7 @@ export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: Graveya
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-medium text-gray-200">
-            Graveyard ({cards.length} cards)
+            {zoneName} ({cards.length} cards)
           </h2>
           <button
             onClick={onClose}
@@ -76,28 +105,28 @@ export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: Graveya
           </button>
         </div>
 
-        {/* Search input */}
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name, type, or text..."
           className="w-full px-3 py-2 mb-3 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          autoFocus
         />
 
-        {/* Card grid */}
         <div className="flex-1 overflow-y-auto">
           {filteredCards.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-8">
-              {search ? 'No cards match your search' : 'Graveyard is empty'}
+              {search ? 'No cards match your search' : `${zoneName} is empty`}
             </p>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,93px)] gap-2 justify-center">
               {filteredCards.map((card) => (
-                <GraveyardCard
+                <ZoneBrowserCardItem
                   key={card.id}
                   card={card}
+                  sourceZone={sourceZone}
+                  ringColor={ringColor}
+                  destinations={destinations}
                   onMoveCard={onMoveCard}
                 />
               ))}
@@ -106,64 +135,53 @@ export function GraveyardBrowser({ cards, isOpen, onClose, onMoveCard }: Graveya
         </div>
 
         <p className="text-[10px] text-gray-500 mt-2 text-center">
-          Click a card for move options.
+          {footerText}
         </p>
       </div>
     </div>
   );
 }
 
-function GraveyardCard({ card, onMoveCard }: { card: CardData; onMoveCard: (cardId: string, dest: Zone | 'battlefield-tapped' | 'battlefield-facedown') => void }) {
+function ZoneBrowserCardItem({
+  card,
+  sourceZone,
+  ringColor,
+  destinations,
+  onMoveCard,
+}: {
+  card: ZoneBrowserCard;
+  sourceZone: Zone;
+  ringColor: string;
+  destinations: { label: string; destination: ZoneBrowserDestination }[];
+  onMoveCard: (cardId: string, destination: ZoneBrowserDestination) => void;
+}) {
   const [showActions, setShowActions] = useState(false);
+  const imgSrc = card.isFaceDown ? CARD_BACK_URL : card.imageURI;
+  const altText = card.isFaceDown ? 'Face-down card' : card.name;
 
   return (
-    <div className="relative group">
+    <div className="relative group" data-card-id={card.id} data-card-zone={sourceZone}>
       <img
-        src={card.imageURI}
-        alt={card.name}
-        className="w-[93px] h-[130px] object-cover rounded-md shadow cursor-pointer hover:ring-2 hover:ring-purple-400 transition-all"
+        src={imgSrc}
+        alt={altText}
+        className={`w-[93px] h-[130px] object-cover rounded-md shadow cursor-pointer hover:ring-2 hover:${ringColor} transition-all`}
         draggable={false}
         onClick={() => setShowActions(!showActions)}
-        title={card.name}
+        title={card.isFaceDown ? 'Face-down' : card.name}
       />
       {showActions && (
         <div className="absolute top-0 left-0 right-0 bg-gray-800/95 rounded-md p-1 z-10 flex flex-col gap-0.5">
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'battlefield'); setShowActions(false); }}
-          >
-            → Battlefield
-          </button>
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'battlefield-tapped'); setShowActions(false); }}
-          >
-            → Battlefield (tapped)
-          </button>
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'battlefield-facedown'); setShowActions(false); }}
-          >
-            → Battlefield (face-down)
-          </button>
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'hand'); setShowActions(false); }}
-          >
-            → Hand
-          </button>
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'library'); setShowActions(false); }}
-          >
-            → Library (top)
-          </button>
-          <button
-            className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
-            onClick={() => { onMoveCard(card.id, 'exile'); setShowActions(false); }}
-          >
-            → Exile
-          </button>
+          {destinations
+            .filter(({ destination }) => destination !== 'battlefield-backface' || card.backFaceImageURI)
+            .map(({ label, destination }) => (
+            <button
+              key={destination}
+              className="text-[10px] text-gray-200 hover:bg-gray-700 rounded px-1 py-0.5 text-left"
+              onClick={() => { onMoveCard(card.id, destination); setShowActions(false); }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
     </div>

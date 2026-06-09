@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { CreatureOuterDiv } from './CreatureOuterDiv';
+import { RotationDiv } from './RotationDiv';
 import type { RowCard, CardData, Attachment } from '../types';
 
 vi.mock('@dnd-kit/core', () => ({
@@ -81,7 +81,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ isTapped: true });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -96,7 +96,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ isTapped: false });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -113,7 +113,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments: [] });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -134,7 +134,7 @@ describe('CreatureOuterDiv', () => {
       const N = 3;
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -154,10 +154,10 @@ describe('CreatureOuterDiv', () => {
       const creature2 = makeRowCard({ attachments: [attachment1, attachment2] });
 
       const { container: c1 } = render(
-        <CreatureOuterDiv creature={creature1} isCompressed={false} onTapCard={vi.fn()} />
+        <RotationDiv creature={creature1} isCompressed={false} onTapCard={vi.fn()} />
       );
       const { container: c2 } = render(
-        <CreatureOuterDiv creature={creature2} isCompressed={false} onTapCard={vi.fn()} />
+        <RotationDiv creature={creature2} isCompressed={false} onTapCard={vi.fn()} />
       );
 
       const width1 = parseFloat((c1.firstElementChild as HTMLElement).style.width);
@@ -175,7 +175,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -199,7 +199,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments: [] });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -225,7 +225,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments });
 
       render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -244,7 +244,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -265,7 +265,7 @@ describe('CreatureOuterDiv', () => {
       const creature = makeRowCard({ attachments });
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={vi.fn()}
@@ -288,7 +288,7 @@ describe('CreatureOuterDiv', () => {
       const onTapCard = vi.fn();
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={onTapCard}
@@ -312,7 +312,7 @@ describe('CreatureOuterDiv', () => {
       const onTapCard = vi.fn();
 
       const { container } = render(
-        <CreatureOuterDiv
+        <RotationDiv
           creature={creature}
           isCompressed={false}
           onTapCard={onTapCard}

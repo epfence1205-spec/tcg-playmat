@@ -6,7 +6,7 @@ import { calculateEffectiveStats, parseKeywords } from '../keywords';
 import { createRowCard } from '../gameActions';
 import type { EquipmentAction } from './EquipmentDock';
 
-export interface CreatureOuterDivProps {
+export interface RotationDivProps {
   creature: RowCard;
   isCompressed: boolean;
   style?: React.CSSProperties;
@@ -14,13 +14,13 @@ export interface CreatureOuterDivProps {
   onEquipmentAction?: (action: EquipmentAction) => void;
 }
 
-export function CreatureOuterDiv({
+export function RotationDiv({
   creature,
   isCompressed,
   style,
   onTapCard,
   onEquipmentAction,
-}: CreatureOuterDivProps) {
+}: RotationDivProps) {
   const N = creature.attachments.length;
   const widthVh = computeOuterDivWidthVh(creature.isTapped, N);
   const heightVh = computeOuterDivHeightVh(creature.isTapped, N);
