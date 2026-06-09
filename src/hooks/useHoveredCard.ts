@@ -8,6 +8,8 @@ export interface HoveredCardData {
   counters: Counter[];
   attachments: CardData[];
   zone: Zone | null;
+  /** True when hovering a face-down card (e.g. library pile) — suppresses HD zoom */
+  isFaceDown: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ export interface HoveredCardData {
  */
 export function useHoveredCard(gameState: GameState) {
   const [hoveredCardData, setHoveredCardData] = useState<HoveredCardData>({
-    card: null, keywords: [], counters: [], attachments: [], zone: null,
+    card: null, keywords: [], counters: [], attachments: [], zone: null, isFaceDown: false,
   });
   const mousePos = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -25,47 +27,45 @@ export function useHoveredCard(gameState: GameState) {
   const resolveFromPoint = useCallback(() => {
     const el = document.elementFromPoint(mousePos.current.x, mousePos.current.y);
     if (!el) {
-      setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null });
+      setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null, isFaceDown: false });
       return;
     }
 
     const cardEl = el.closest('[data-card-id]') as HTMLElement | null;
     if (!cardEl) {
-      setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null });
+      setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null, isFaceDown: false });
       return;
     }
 
     const cardId = cardEl.getAttribute('data-card-id')!;
     const zone = cardEl.getAttribute('data-card-zone') as Zone;
+    const faceDown = cardEl.getAttribute('data-card-facedown') === 'true';
 
     if (zone === 'battlefield') {
       const allBf = getAllBattlefieldCards(gameState);
       const found = allBf.find(rc => rc.instanceId === cardId);
       if (found) {
-        setHoveredCardData({ card: found.card, keywords: found.card.keywords, counters: found.counters, attachments: found.attachments.map(a => a.card), zone });
+        setHoveredCardData({ card: found.card, keywords: found.card.keywords, counters: found.counters, attachments: found.attachments.map(a => a.card), zone, isFaceDown: found.isFaceDown });
         return;
       }
     } else if (zone === 'hand') {
       const card = gameState.hand.find(c => c.id === cardId);
-      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone, isFaceDown: false }); return; }
     } else if (zone === 'commandZone') {
       const card = gameState.commandZone.find(c => c.id === cardId);
-      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone, isFaceDown: false }); return; }
     } else if (zone === 'graveyard') {
       const card = gameState.graveyard.find(c => c.id === cardId);
-      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone }); return; }
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone, isFaceDown: false }); return; }
     } else if (zone === 'exile') {
       const ec = gameState.exile.find(e => e.card.id === cardId);
-      if (ec) { setHoveredCardData({ card: ec.card, keywords: ec.card.keywords, counters: [], attachments: [], zone }); return; }
+      if (ec) { setHoveredCardData({ card: ec.card, keywords: ec.card.keywords, counters: [], attachments: [], zone, isFaceDown: ec.isFaceDown }); return; }
     } else if (zone === 'library') {
-      if (gameState.library.length > 0) {
-        const top = gameState.library[0];
-        setHoveredCardData({ card: top, keywords: top.keywords, counters: [], attachments: [], zone });
-        return;
-      }
+      const card = gameState.library.find(c => c.id === cardId);
+      if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone, isFaceDown: faceDown }); return; }
     }
 
-    setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null });
+    setHoveredCardData({ card: null, keywords: [], counters: [], attachments: [], zone: null, isFaceDown: false });
   }, [gameState]);
 
   // Re-resolve on every state change

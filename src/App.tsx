@@ -1182,7 +1182,7 @@ function AppContent() {
           cards={gameState.hand}
           gamePhase={gameState.gamePhase}
           mulliganState={gameState.mulliganState}
-          hoveredCard={hoveredCardData.card}
+          hoveredCard={hoveredCardData.isFaceDown ? null : hoveredCardData.card}
           collapsingIds={collapsingIds}
           onDragStart={() => {}}
           onToggleReveal={(cardId) => {
