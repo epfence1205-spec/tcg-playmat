@@ -79,3 +79,5 @@
 
 ## Tabled: Future Features (needs specs)
 - **LLM-powered equipment parser** — Replace regex stat/keyword extraction with semantic understanding
+- **Reveal vs private peek distinction** — Scry/surveil are private (not shown to opponents); discover/cascade/impulse are revealed (public). Add a `revealed` flag to peek modes with visual differentiation in the OBS broadcast zone. Depends on multiplayer or stream-aware context to be meaningful.
+- **Cascade/Discover mode** — Reveal cards one-at-a-time from top until a valid target is hit (MV < source). Different from fixed-N peek since count is unknown upfront. Needs its own sequential reveal UI.

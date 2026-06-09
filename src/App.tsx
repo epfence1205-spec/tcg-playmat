@@ -11,6 +11,9 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ContextMenu } from './components/ContextMenu'
 import type { ContextMenuAction } from './components/ContextMenu'
 import { PeekModal } from './components/PeekModal'
+import { PeekModeSelector } from './components/PeekModeSelector'
+import type { PeekMode, PeekResult } from './peekActions'
+import { applyPeekResult } from './peekActions'
 import { KeybindOverlay } from './components/KeybindOverlay'
 import { ZoneBrowser } from './components/ZoneBrowser'
 import type { ZoneBrowserCard, ZoneBrowserDestination } from './components/ZoneBrowser'
@@ -208,12 +211,12 @@ function AppContent() {
         }
         break
       case 'PEEK':
-        // Peek at top N cards of library
+        // Open mode selector (intermediate step before peek modal)
         {
           const count = Math.min(action.count, gameState.library.length)
-          if (count > 0) {
-            setPeekCards(gameState.library.slice(0, count))
-            setShowPeekModal(true)
+          if (count > 0 && !showPeekModal) {
+            setPeekCount(count)
+            setShowPeekModeSelector(true)
           }
         }
         break
@@ -256,6 +259,9 @@ function AppContent() {
   const [, setIsDeckSwitchMode] = useState(false)
   const [peekCards, setPeekCards] = useState<CardData[]>([])
   const [showPeekModal, setShowPeekModal] = useState(false)
+  const [showPeekModeSelector, setShowPeekModeSelector] = useState(false)
+  const [peekCount, setPeekCount] = useState(0)
+  const [peekMode, setPeekMode] = useState<PeekMode>('peek')
   const [showKeybindOverlay, setShowKeybindOverlay] = useState(false)
   const [showLibraryBrowser, setShowLibraryBrowser] = useState(false)
   const [showGraveyardBrowser, setShowGraveyardBrowser] = useState(false)
@@ -1272,11 +1278,34 @@ function AppContent() {
         onClose={handleContextMenuClose}
       />
 
-      {/* Peek Modal — Alt+1-9 shows top N cards */}
+      {/* Peek Mode Selector — Alt+1-9 opens this first */}
+      <PeekModeSelector
+        count={peekCount}
+        isOpen={showPeekModeSelector}
+        onSelectMode={(mode: PeekMode) => {
+          setShowPeekModeSelector(false)
+          const cards = gameState.library.slice(0, peekCount)
+          setPeekCards(cards)
+          setPeekMode(mode)
+          setShowPeekModal(true)
+        }}
+        onClose={() => setShowPeekModeSelector(false)}
+      />
+
+      {/* Peek Modal — interactive scry/surveil/select/peek */}
       <PeekModal
         cards={peekCards}
+        mode={peekMode}
         isOpen={showPeekModal}
-        onClose={() => setShowPeekModal(false)}
+        onConfirm={(result: PeekResult) => {
+          setGameState((prev: GameState) => applyPeekResult(prev, result))
+          setShowPeekModal(false)
+          setPeekMode('peek')
+        }}
+        onClose={() => {
+          setShowPeekModal(false)
+          setPeekMode('peek')
+        }}
       />
 
       {/* Keybind Overlay — ? key shows all shortcuts */}

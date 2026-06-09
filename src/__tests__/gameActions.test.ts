@@ -454,11 +454,11 @@ describe('getDefaultRowTarget land routing', () => {
     expect(result.row4.left[0].card.id).toBe('land-1');
   });
 
-  it('routes "unknown" landCategory to row4-lands', () => {
+  it('routes "unknown" landCategory to row3-lands', () => {
     const card = makeLand('land-1', 'unknown');
     const result = addToBattlefield(emptyState, card);
-    expect(result.row4.left).toHaveLength(1);
-    expect(result.row4.left[0].card.id).toBe('land-1');
+    expect(result.row3.left).toHaveLength(1);
+    expect(result.row3.left[0].card.id).toBe('land-1');
   });
 
   it('routes "scryland" to row3-lands', () => {
