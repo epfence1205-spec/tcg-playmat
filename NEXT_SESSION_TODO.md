@@ -58,12 +58,10 @@
 - **Turn counter** — Track current turn number, increment on Next Turn (N key)
 - **Life counter** — Track life total with +/- buttons, keyboard shortcuts, and visible HUD display
 
-## Tabled: Battlefield Row Sortable (needs spec — partially implemented)
-- Within-row reorder works via @dnd-kit/sortable (already wired up in RowTrack and SplitRowTrack)
-- **Missing: Cross-container insertion gaps** — Show visual gap/insertion indicator when dragging cards between rows or from other zones to a specific position within a row (requires custom collision detection beyond @dnd-kit/sortable's single-context limitation)
-- **Missing: Cross-row drag** — Drag a card from one row to another with positional targeting (not just "drop on row, append to end")
-- Constraints: must coexist with cross-zone drag, equipment docking, and basic land auto-sort
-- Needs a fresh spec and design before implementation
+## ~~Tabled: Battlefield Row Sortable~~ ✅ Implemented
+- Within-row reorder works via @dnd-kit/sortable (RowTrack and SplitRowTrack)
+- All rows use universal SortableCardWrapper → RotationDiv → img hierarchy
+- Sortable displacement (cards move aside) works for creatures, lands, artifacts, enchantments
 
 ## Tabled: Production Readiness (post-beta)
 - **Backend proxy** — Replace Vite dev proxies with a real backend (serverless functions or edge proxy) for Moxfield/Archidekt/Scryfall API calls
