@@ -139,6 +139,11 @@ export function RotationDiv({
               {effectiveStats.modifiedPower}/{effectiveStats.modifiedToughness}
             </div>
           )}
+          {creature.card.isTokenCopy && (
+            <div className="absolute top-[38%] left-1/2 -translate-x-1/2 bg-black/70 text-white text-[9px] font-bold px-1 py-0.5 rounded">
+              TOKEN
+            </div>
+          )}
         </div>
       </div>
 

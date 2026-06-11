@@ -1,4 +1,4 @@
-import type { CreatureArea, RowCard } from './types';
+import type { CreatureArea, RowCard, RowTarget } from './types';
 import { shouldSplitRows, computeOuterDivWidthVh } from './creatureLayout';
 
 /**
@@ -44,6 +44,11 @@ export function recalculateCreatureRows(
 
   const totalCount = countIndependentElements(allElements);
 
+  // Stamp rowAssignment on each element to match its actual row
+  // Skip cards with pw-battle-column assignment (they retain their own row identity)
+  const stamp = (elements: typeof allElements, rowId: RowTarget) =>
+    elements.map(el => el.rowAssignment === rowId || el.rowAssignment === 'pw-battle-column' ? el : { ...el, rowAssignment: rowId });
+
   if (shouldSplitRows(permanents, containerWidthPx, vhToPx, gapPx)) {
     // Need 2 rows for permanents
     // Check if already split — preserve user arrangement
@@ -60,8 +65,8 @@ export function recalculateCreatureRows(
       const row2Permanents = currentRows.slice(1).flatMap(r => r.permanents);
       return {
         rows: [
-          { id: 'creature-1', elements: row1Permanents },
-          { id: 'creature-2', elements: [...row2Permanents, ...spells] },
+          { id: 'creature-1', elements: stamp(row1Permanents, 'creature-1') },
+          { id: 'creature-2', elements: stamp([...row2Permanents, ...spells], 'creature-2') },
         ],
         totalElementCount: totalCount,
       };
@@ -71,8 +76,8 @@ export function recalculateCreatureRows(
     const perRow = Math.ceil(permanents.length / 2);
     return {
       rows: [
-        { id: 'creature-1', elements: permanents.slice(0, perRow) },
-        { id: 'creature-2', elements: [...permanents.slice(perRow), ...spells] },
+        { id: 'creature-1', elements: stamp(permanents.slice(0, perRow), 'creature-1') },
+        { id: 'creature-2', elements: stamp([...permanents.slice(perRow), ...spells], 'creature-2') },
       ],
       totalElementCount: totalCount,
     };
@@ -82,15 +87,15 @@ export function recalculateCreatureRows(
   if (spells.length > 0) {
     return {
       rows: [
-        { id: 'creature-1', elements: permanents },
-        { id: 'creature-2', elements: spells },
+        { id: 'creature-1', elements: stamp(permanents, 'creature-1') },
+        { id: 'creature-2', elements: stamp(spells, 'creature-2') },
       ],
       totalElementCount: totalCount,
     };
   }
 
   return {
-    rows: [{ id: 'creature-1', elements: permanents }],
+    rows: [{ id: 'creature-1', elements: stamp(permanents, 'creature-1') }],
     totalElementCount: totalCount,
   };
 }
