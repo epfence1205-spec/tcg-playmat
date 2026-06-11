@@ -19,8 +19,9 @@ import { ZoneBrowser } from './components/ZoneBrowser'
 import type { ZoneBrowserCard, ZoneBrowserDestination } from './components/ZoneBrowser'
 import { TokenPanel } from './components/TokenPanel'
 import { ToastProvider } from './contexts/ToastContext'
-import { resolveTokensForDeck, clearTokenCache } from './api/tokenResolver'
+import { resolveTokensFromCards, clearTokenCache } from './api/tokenResolver'
 import type { TokenDefinition } from './api/tokenResolver'
+import type { ScryfallCard } from './api/scryfallResolver'
 import { useGameState } from './hooks/useGameState'
 import { useHoveredCard } from './hooks/useHoveredCard'
 import { useEquipmentDocking, getValidDockTargets } from './hooks/useEquipmentDocking'
@@ -124,7 +125,7 @@ function AppContent() {
             isTokenCopy: !isSourceToken,
             isCommander: false,
           }
-          return addToBattlefield(prev, copyCard)
+          return addToBattlefield(prev, copyCard, found.card.rowAssignment)
         })
         break
       case 'ADD_COUNTER':
@@ -253,8 +254,13 @@ function AppContent() {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showDeckSwitchConfirm, setShowDeckSwitchConfirm] = useState(false)
 
-  // Token resolver state
-  const [deckTokens, setDeckTokens] = useState<TokenDefinition[]>([])
+  // Token resolver state — persisted in localStorage for reload survival
+  const [deckTokens, setDeckTokens] = useState<TokenDefinition[]>(() => {
+    try {
+      const stored = localStorage.getItem('tcg-playmat-deck-tokens')
+      return stored ? JSON.parse(stored) : []
+    } catch { return [] }
+  })
   const [showTokenPanel, setShowTokenPanel] = useState(false)
   const [, setIsDeckSwitchMode] = useState(false)
   const [peekCards, setPeekCards] = useState<CardData[]>([])
@@ -267,6 +273,17 @@ function AppContent() {
   const [showGraveyardBrowser, setShowGraveyardBrowser] = useState(false)
   const [showExileBrowser, setShowExileBrowser] = useState(false)
   const [revealedCardIds, setRevealedCardIds] = useState<Set<string>>(new Set())
+
+  // Persist deckTokens to localStorage when they change
+  useEffect(() => {
+    try {
+      if (deckTokens.length > 0) {
+        localStorage.setItem('tcg-playmat-deck-tokens', JSON.stringify(deckTokens))
+      } else {
+        localStorage.removeItem('tcg-playmat-deck-tokens')
+      }
+    } catch { /* quota exceeded — non-critical */ }
+  }, [deckTokens])
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -480,7 +497,7 @@ function AppContent() {
               isTokenCopy: !isSourceToken,
               isCommander: false,
             }
-            state = addToBattlefield(state, copyCard)
+            state = addToBattlefield(state, copyCard, found.card.rowAssignment)
           }
           return state
         })
@@ -1052,7 +1069,7 @@ function AppContent() {
     setShowDeckSwitchConfirm(false)
   }
 
-  const handleImportComplete = (deck: { mainboard: CardData[]; commanders: CardData[] }) => {
+  const handleImportComplete = (deck: { mainboard: CardData[]; commanders: CardData[]; resolvedScryfallCards: ScryfallCard[] }) => {
     setGameState((_prev: GameState) => {
       const freshState: GameState = {
         gamePhase: 'PLAYING',
@@ -1073,8 +1090,8 @@ function AppContent() {
     })
     setIsDeckSwitchMode(false)
 
-    // Eagerly resolve tokens for the imported deck
-    resolveTokensForDeck([...deck.mainboard, ...deck.commanders]).then(setDeckTokens)
+    // Eagerly resolve tokens from the already-fetched Scryfall data (single batch call)
+    resolveTokensFromCards(deck.resolvedScryfallCards).then(setDeckTokens)
   }
 
   const handleImportClose = () => {

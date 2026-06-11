@@ -122,11 +122,22 @@ export function computeCompression(
     return sum + widthVh * vhToPx;
   }, 0);
 
+  // Count same-name adjacent pairs — these use fixed 9vh aggressive overlap at render
+  let aggressivePairs = 0;
+  for (let i = 1; i < elements.length; i++) {
+    if (elements[i].card.name === elements[i - 1].card.name) aggressivePairs++;
+  }
+  const aggressiveSavingsPx = aggressivePairs * 9 * vhToPx;
+
   const totalGapsPx = (elements.length - 1) * gapPx;
-  const totalNeeded = totalWidthPx + totalGapsPx;
+  const totalNeeded = totalWidthPx + totalGapsPx - aggressiveSavingsPx;
 
   if (totalNeeded <= containerWidthPx) return 0;
-  return (totalNeeded - containerWidthPx) / (elements.length - 1);
+
+  // Distribute overflow only across non-aggressive gaps
+  const compressibleGaps = elements.length - 1 - aggressivePairs;
+  if (compressibleGaps <= 0) return 0;
+  return (totalNeeded - containerWidthPx) / compressibleGaps;
 }
 
 

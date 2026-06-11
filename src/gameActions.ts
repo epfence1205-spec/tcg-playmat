@@ -469,9 +469,18 @@ function addToCreatureArea(
     rows.push({ id: `creature-${rows.length + 1}`, elements: [] });
   }
 
-  const positionIndex = rows[rowIdx].elements.length;
-  const rowCard = createRowCard(card, target, positionIndex);
-  const newElements = [...rows[rowIdx].elements, rowCard];
+  // Insert adjacent to same-name cards for aggressive overlap grouping
+  const elements = rows[rowIdx].elements;
+  let insertIdx = elements.length; // default: append at end
+  for (let i = elements.length - 1; i >= 0; i--) {
+    if (elements[i].card.name === card.name) {
+      insertIdx = i + 1;
+      break;
+    }
+  }
+
+  const rowCard = createRowCard(card, target, insertIdx);
+  const newElements = [...elements.slice(0, insertIdx), rowCard, ...elements.slice(insertIdx)];
   const newRows = rows.map((r, i) =>
     i === rowIdx ? { ...r, elements: newElements } : r
   );

@@ -257,26 +257,37 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
       aria-label={`${rowId} row`}
     >
       <SortableContext items={elements.map(el => el.instanceId)} strategy={horizontalListSortingStrategy}>
-        {elements.map((el, idx) => (
-          <SortableCardWrapper
-            key={el.instanceId}
-            id={el.instanceId}
-            cardName={el.card.name}
-            cardType={el.card.cardType}
-            rowId={rowId}
-            isTapped={el.isTapped}
-            attachmentCount={el.attachments.length}
-            isCollapsing={collapsingIds?.has(el.instanceId)}
-            style={idx > 0 && negativeMargin > 0 ? { marginLeft: `-${negativeMargin}px` } : undefined}
-          >
-            <RotationDiv
-              creature={el}
-              onTapCard={onTapCard}
-              onEquipmentAction={onEquipmentAction}
-              isCompressed={negativeMargin > 0}
-            />
-          </SortableCardWrapper>
-        ))}
+        {elements.map((el, idx) => {
+          const prev = idx > 0 ? elements[idx - 1] : null;
+          // Same-name aggressive overlap — stacks identical cards tightly
+          // NOTE: May exclude isTokenCopy in future to prevent clone stacking
+          const sameAsPrev = prev && prev.card.name === el.card.name;
+          const vh = window.innerHeight / 100;
+          const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
+          const dynamicOverlap = idx > 0 && negativeMargin > 0 ? negativeMargin : 0;
+          const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+
+          return (
+            <SortableCardWrapper
+              key={el.instanceId}
+              id={el.instanceId}
+              cardName={el.card.name}
+              cardType={el.card.cardType}
+              rowId={rowId}
+              isTapped={el.isTapped}
+              attachmentCount={el.attachments.length}
+              isCollapsing={collapsingIds?.has(el.instanceId)}
+              style={idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+            >
+              <RotationDiv
+                creature={el}
+                onTapCard={onTapCard}
+                onEquipmentAction={onEquipmentAction}
+                isCompressed={negativeMargin > 0}
+              />
+            </SortableCardWrapper>
+          );
+        })}
       </SortableContext>
     </div>
   );
