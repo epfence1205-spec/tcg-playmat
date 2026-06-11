@@ -75,6 +75,7 @@ describe('persistence', () => {
       mulliganState: null,
       deckLoaded: true,
       lifeTotal: 40,
+      turnCount: 0,
     };
   }
 
@@ -260,6 +261,7 @@ describe('persistence', () => {
         mulliganState: null,
         deckLoaded: false,
         lifeTotal: 40,
+        turnCount: 0,
       });
     });
 

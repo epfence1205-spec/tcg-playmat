@@ -183,6 +183,7 @@ const gameStateArb: fc.Arbitrary<GameState> = fc.record({
   mulliganState: fc.option(mulliganStateArb, { nil: null }),
   deckLoaded: fc.boolean(),
   lifeTotal: fc.integer({ min: 0, max: 100 }),
+  turnCount: fc.integer({ min: 0, max: 50 }),
 });
 
 // ─── Helper: Deep equality that handles Set<string> ──────────────────────────

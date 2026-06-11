@@ -899,7 +899,8 @@ export function softReset(state: GameState): GameState {
     exile: [],
     mulliganState: null,
     deckLoaded: true,
-    lifeTotal: state.lifeTotal,
+    lifeTotal: 40,
+    turnCount: 0,
   };
 }
 

@@ -84,6 +84,7 @@ function patchRowCard(rc: RowCard): RowCard {
 function deserializeState(data: SerializedGameState): GameState {
   return {
     ...data,
+    turnCount: (data as any).turnCount ?? 0,
     hand: data.hand.map(patchCardData),
     library: data.library.map(patchCardData),
     graveyard: data.graveyard.map(patchCardData),
@@ -190,6 +191,7 @@ export function createEmptyGameState(): GameState {
     mulliganState: null,
     deckLoaded: false,
     lifeTotal: 40,
+    turnCount: 0,
   };
 }
 

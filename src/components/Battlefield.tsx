@@ -24,6 +24,12 @@ export interface BattlefieldProps {
   row4: SplitRow;
   /** Number of cards in the player's hand (for HUD) */
   handCount: number;
+  /** Current turn number */
+  turnCount: number;
+  /** Player life total */
+  lifeTotal: number;
+  /** Called when life total changes */
+  onLifeChange: (delta: number) => void;
   /** Current game phase */
   gamePhase: GamePhase;
   /** Called when a card is dropped onto a row target */
@@ -63,6 +69,9 @@ export function Battlefield({
   row3,
   row4,
   handCount,
+  turnCount,
+  lifeTotal,
+  onLifeChange,
   gamePhase,
   onDropCard,
   onTapCard,
@@ -178,14 +187,28 @@ export function Battlefield({
       {/* Children overlay (toolbar, etc.) */}
       {children}
 
-      {/* Hand Count HUD — bottom-left of Zone A, above crop line */}
+      {/* Player Info HUD — bottom-left of Zone A, above crop line */}
       <div
-        className="absolute bottom-2 left-2 bg-black/70 text-white text-sm font-mono px-2 py-1 rounded pointer-events-none select-none z-50"
-        aria-label={`Hand: ${handCount} cards`}
+        className="absolute bottom-2 left-2 bg-black/70 text-white text-sm font-mono px-2 py-1 rounded select-none z-50 flex flex-col gap-0.5"
+        aria-label={`Turn: ${turnCount}, Life: ${lifeTotal}, Hand: ${handCount} cards`}
         aria-live="polite"
         aria-atomic="true"
       >
-        Hand: {handCount}
+        <span>Turn: {turnCount}</span>
+        <span className="flex items-center gap-1">
+          Life: {lifeTotal}
+          <button
+            className="px-1 text-xs bg-gray-600 hover:bg-gray-500 rounded pointer-events-auto"
+            onClick={() => onLifeChange(-1)}
+            aria-label="Decrease life"
+          >▼</button>
+          <button
+            className="px-1 text-xs bg-gray-600 hover:bg-gray-500 rounded pointer-events-auto"
+            onClick={() => onLifeChange(1)}
+            aria-label="Increase life"
+          >▲</button>
+        </span>
+        <span>Hand: {handCount}</span>
       </div>
     </div>
   );

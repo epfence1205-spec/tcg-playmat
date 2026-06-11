@@ -368,6 +368,8 @@ export interface GameState {
   deckLoaded: boolean;
   /** Player life total (Commander: 40) */
   lifeTotal: number;
+  /** Current turn number (starts at 0, increments on Next Turn) */
+  turnCount: number;
 }
 
 // ─── Drag State ──────────────────────────────────────────────────────────────

@@ -92,7 +92,7 @@ function AppContent() {
         setGameState((prev: GameState) => untapAll(prev))
         break
       case 'NEXT_TURN':
-        setGameState((prev: GameState) => drawCardAction(untapAll(prev)))
+        setGameState((prev: GameState) => ({ ...drawCardAction(untapAll(prev)), turnCount: prev.turnCount + 1 }))
         break
       case 'NEW_GAME':
         setShowResetConfirm(true)
@@ -1084,6 +1084,7 @@ function AppContent() {
         mulliganState: null,
         deckLoaded: true,
         lifeTotal: 40,
+        turnCount: 0,
       }
       // Initialize mulligan: draws 7 from library, sets gamePhase = 'MULLIGAN'
       return initializeMulligan(freshState)
@@ -1138,6 +1139,9 @@ function AppContent() {
           row3={gameState.row3}
           row4={gameState.row4}
           handCount={gameState.hand.length}
+          turnCount={gameState.turnCount}
+          lifeTotal={gameState.lifeTotal}
+          onLifeChange={(delta: number) => setGameState((prev: GameState) => ({ ...prev, lifeTotal: prev.lifeTotal + delta }))}
           gamePhase={gameState.gamePhase}
           onDropCard={handleDropCard}
           onTapCard={handleTapCard}
