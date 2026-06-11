@@ -14,6 +14,8 @@ export interface ImportResult {
   mainboard: CardData[];
   commanders: CardData[];
   failures: string[];
+  /** Raw Scryfall card data for token extraction (contains all_parts). */
+  resolvedScryfallCards: import('../api/scryfallResolver').ScryfallCard[];
 }
 
 export interface ImportOptions {
@@ -82,7 +84,7 @@ export async function importDeck(
     }
   }
 
-  return { mainboard, commanders, failures };
+  return { mainboard, commanders, failures, resolvedScryfallCards: [...resolved.values()] };
 }
 
 /**

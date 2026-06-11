@@ -7,12 +7,13 @@ import { isMoxfieldUrl, fetchMoxfieldDeck } from '../parsers/moxfieldParser';
 import { isArchidektUrl, fetchArchidektDeck } from '../parsers/archidektParser';
 import { importDeck } from '../import/importDeck';
 import type { ImportResult } from '../import/importDeck';
+import type { ScryfallCard } from '../api/scryfallResolver';
 import { useToastContext } from '../contexts/ToastContext';
 
 interface DeckImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportComplete: (deck: { mainboard: CardData[]; commanders: CardData[] }) => void;
+  onImportComplete: (deck: { mainboard: CardData[]; commanders: CardData[]; resolvedScryfallCards: ScryfallCard[] }) => void;
 }
 
 /**
@@ -125,7 +126,7 @@ export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImpor
         setFailures(result.failures);
       } else {
         // Full success — deliver result and close
-        onImportComplete({ mainboard: result.mainboard, commanders: result.commanders });
+        onImportComplete({ mainboard: result.mainboard, commanders: result.commanders, resolvedScryfallCards: result.resolvedScryfallCards });
         resetState();
         onClose();
       }
@@ -151,6 +152,7 @@ export function DeckImportModal({ isOpen, onClose, onImportComplete }: DeckImpor
       onImportComplete({
         mainboard: lastImportResult.current.mainboard,
         commanders: lastImportResult.current.commanders,
+        resolvedScryfallCards: lastImportResult.current.resolvedScryfallCards,
       });
     }
     resetState();

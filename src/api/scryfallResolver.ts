@@ -24,6 +24,7 @@ export interface ScryfallCard {
   mana_cost?: string;
   color_identity?: string[];
   produced_mana?: string[];
+  all_parts?: Array<{ id: string; name: string; component: string; type_line: string; uri: string }>;
 }
 
 /** A card identifier for Scryfall's /cards/collection endpoint. */
