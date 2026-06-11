@@ -1,6 +1,6 @@
 # TCG Playmat — Feature Status
 
-## Status: 600 tests pass, TypeScript compiles clean, app runs at localhost:5173
+## Status: 699 tests pass, TypeScript compiles clean, app runs at localhost:5173
 
 ## All Features Complete
 - ✅ Deck import from Archidekt (with set codes for correct art)
@@ -45,6 +45,8 @@
 - ✅ Command zone stack (CMC sorting, cascade overlap, Alt+click fan-out for partner commanders)
 - ✅ Enchant land auras (full aura/equipment docking matrix — enchant land, artifact, permanent, planeswalker, fortification)
 - ✅ Land categorization (classify utility vs mana-only, sorted row insertion, painland/checkland fixes)
+- ✅ Peek upgrade (scry/surveil/select modes: reorder peeked cards, move individual cards to GY/bottom/hand, confirm arrangement)
+- ✅ Library browser hover fix (resolves correct card by ID, suppresses HD zoom on face-down pile)
 
 ## Known Bugs
 - ~~**Yellow ring flash on click+keybind** — Fixed: removed global `*:focus-visible` CSS outline and browser default focus outline from index.css.~~
@@ -54,7 +56,6 @@
 
 ## Next Session
 - **Mutate** — Support mutate mechanic (stack creature cards, share abilities/P+T modifications)
-- **Peek upgrade** — Scry/surveil/reveal support: reorder peeked cards, move individual cards to graveyard/bottom/hand, confirm final arrangement
 - **Turn counter** — Track current turn number, increment on Next Turn (N key)
 - **Life counter** — Track life total with +/- buttons, keyboard shortcuts, and visible HUD display
 
