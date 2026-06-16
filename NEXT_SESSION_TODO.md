@@ -53,12 +53,16 @@
 - ~~**Lands/noncreatures lack sortable ghost** — Fixed: replaced `DraggableCard` with plain `<img>` inside `DroppableCardSlot` to eliminate dnd-kit ID collision with `SortableCardWrapper`.~~
 - **Moxfield 403** — Cloudflare blocks Node's TLS fingerprint (JA3) on Vite's built-in HTTP proxy. `curl.exe` with browser User-Agent passes fine (proven). Parser logic is fixed and tested against v3 API (`boards.{zone}.cards` structure, `cn` field). **Dev fix:** custom Vite plugin shelling out to curl (WIP in `vite.config.ts`, plugin file not yet created). **Prod fix:** GitHub Pages is static-only — needs an external serverless proxy (Cloudflare Worker free tier or Vercel Edge Function) to relay Moxfield requests. Archidekt has the same prod requirement but works in dev because their API doesn't use Cloudflare bot detection.
 - ~~**Plain text parser drops "Reanimate"** — Fixed: Scryfall's `/cards/collection` deduplicates DFC back-face names against standalones within the same batch. Added `separateDfcCollisions()` to defer standalone cards whose names match a DFC back face into a separate API request where they resolve correctly.~~
+- **Token panel blank after server reload** — useEffect in App.tsx calls `localStorage.removeItem('tcg-playmat-deck-tokens')` when `deckTokens.length === 0`. On Vite dev server restart, this races with the lazy initializer and wipes the persisted tokens. **Fix:** remove the `removeItem` branch from the effect — only write, never delete via effect. Clear explicitly in soft reset handler instead.
 
 ## Next Session
 - ~~**Mutate**~~ ✅ Done — Full mutate mechanic implemented (stack, split, zone movement, commander handling)
 - ~~**Turn counter**~~ ✅ Done — Tracks current turn, N key increments
 - ~~**Life counter**~~ ✅ Done — HUD with +/- buttons
 - ~~**OBS Stream View**~~ ✅ Done — `/stream` route mirrors player view with card-backs in hand, no UI chrome
+- ~~**HD Zoom Portal upgrade**~~ ✅ Done — Moved to Zone A (33vh), library hover suppressed, corner clipping
+- ~~**Counter system overhaul**~~ ✅ Done — Keyword counters unified with equipment keywords, P/T modifiers separate from counters, +1/+1 netting, remove counter menu
+- **Fix token persistence bug** — Remove `localStorage.removeItem` from deckTokens useEffect
 - **Token system improvements** — Better token creation UX, batch create, token search
 - **Undo/redo system hardening** — Edge cases with mutate stacks, equipment attachment ordering
 - **Performance optimization** — Large board states (20+ creatures), memoization audit
