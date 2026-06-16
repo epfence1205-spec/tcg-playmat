@@ -16,7 +16,6 @@ export interface HandTrayProps {
   cards: CardData[];
   gamePhase: GamePhase;
   mulliganState: MulliganState | null;
-  hoveredCard: CardData | null;
   onDragStart: (cardId: string) => void;
   onToggleReveal: (cardId: string) => void;
   onMulliganAction: (action: MulliganAction) => void;
@@ -190,7 +189,6 @@ export function HandTray({
   cards,
   gamePhase,
   mulliganState,
-  hoveredCard,
   onDragStart: _onDragStart,
   onToggleReveal,
   onMulliganAction,
@@ -332,23 +330,6 @@ export function HandTray({
         )}
       </div>
 
-      {/* HDZoomPortal reserved space (right side) — actual component is task 8.4 */}
-      <div
-        className="flex-shrink-0 w-[140px] flex items-center justify-center border-l border-gray-700/50"
-        data-slot="hd-zoom-portal"
-      >
-        {hoveredCard && (
-          <div className="flex flex-col items-center gap-1">
-            <img
-              src={hoveredCard.imageURILarge || hoveredCard.imageURI}
-              alt={hoveredCard.name}
-              className="max-h-full max-w-full object-contain rounded"
-              style={{ maxHeight: 'calc(20vh - 16px)' }}
-              draggable={false}
-            />
-          </div>
-        )}
-      </div>
     </div>
   );
 }

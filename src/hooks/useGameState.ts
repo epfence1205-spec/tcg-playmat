@@ -11,6 +11,7 @@ import {
   moveCard as moveCardAction,
   addToBattlefield as addToBattlefieldAction,
   isGameInProgress as isGameInProgressFn,
+  findCardOnBattlefield,
 } from '../gameActions';
 import {
   initializeMulligan as initializeMulliganAction,
@@ -22,6 +23,12 @@ import {
   attachEquipment as attachEquipmentAction,
   detachEquipment as detachEquipmentAction,
 } from '../equipmentActions';
+import {
+  mutateOver as mutateOverAction,
+  mutateUnder as mutateUnderAction,
+  splitMutateStack as splitMutateStackAction,
+  separateMutateStackWithCommanderChoice as separateMutateStackWithCommanderChoiceAction,
+} from '../mutateActions';
 import { reorderWithinRow as reorderWithinRowAction } from '../sortableHelpers';
 import {
   addCounter as addCounterAction,
@@ -243,6 +250,37 @@ export function useGameState(onQuotaExceeded?: () => void) {
     [updateWithCreatureRecalc]
   );
 
+  // ─── Mutate Actions (battlefield mutations → recalculate rows) ────────────
+
+  const mutateOnto = useCallback(
+    (sourceCardId: string, targetCardId: string, placement: 'over' | 'under', sourceZone: 'battlefield' | 'hand') => {
+      updateWithCreatureRecalc((prev) =>
+        placement === 'over'
+          ? mutateOverAction(prev, sourceCardId, targetCardId, sourceZone)
+          : mutateUnderAction(prev, sourceCardId, targetCardId, sourceZone)
+      );
+    },
+    [updateWithCreatureRecalc]
+  );
+
+  const splitMutateStack = useCallback(
+    (cardId: string) => {
+      updateWithCreatureRecalc((prev) => splitMutateStackAction(prev, cardId));
+    },
+    [updateWithCreatureRecalc]
+  );
+
+  const moveMutatedCreature = useCallback(
+    (cardId: string, destination: 'graveyard' | 'exile', commanderChoices: Map<string, 'commandZone' | 'graveyard' | 'exile'>) => {
+      updateWithCreatureRecalc((prev) => {
+        const result = findCardOnBattlefield(prev, cardId);
+        if (!result) return prev;
+        return separateMutateStackWithCommanderChoiceAction(prev, result.card, destination, commanderChoices);
+      });
+    },
+    [updateWithCreatureRecalc]
+  );
+
   // ─── Sortable Actions ─────────────────────────────────────────────────────
 
   const reorderInRow = useCallback(
@@ -303,6 +341,11 @@ export function useGameState(onQuotaExceeded?: () => void) {
     // Equipment actions
     attachEquipment,
     detachEquipment,
+
+    // Mutate actions
+    mutateOnto,
+    splitMutateStack,
+    moveMutatedCreature,
 
     // Sortable actions
     reorderInRow,

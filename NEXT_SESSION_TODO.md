@@ -55,9 +55,13 @@
 - ~~**Plain text parser drops "Reanimate"** — Fixed: Scryfall's `/cards/collection` deduplicates DFC back-face names against standalones within the same batch. Added `separateDfcCollisions()` to defer standalone cards whose names match a DFC back face into a separate API request where they resolve correctly.~~
 
 ## Next Session
-- **Mutate** — Support mutate mechanic (stack creature cards, share abilities/P+T modifications)
-- **Turn counter** — Track current turn number, increment on Next Turn (N key)
-- **Life counter** — Track life total with +/- buttons, keyboard shortcuts, and visible HUD display
+- ~~**Mutate**~~ ✅ Done — Full mutate mechanic implemented (stack, split, zone movement, commander handling)
+- ~~**Turn counter**~~ ✅ Done — Tracks current turn, N key increments
+- ~~**Life counter**~~ ✅ Done — HUD with +/- buttons
+- ~~**OBS Stream View**~~ ✅ Done — `/stream` route mirrors player view with card-backs in hand, no UI chrome
+- **Token system improvements** — Better token creation UX, batch create, token search
+- **Undo/redo system hardening** — Edge cases with mutate stacks, equipment attachment ordering
+- **Performance optimization** — Large board states (20+ creatures), memoization audit
 
 ## ~~Tabled: Battlefield Row Sortable~~ ✅ Implemented
 - Within-row reorder works via @dnd-kit/sortable (RowTrack and SplitRowTrack)
@@ -76,7 +80,7 @@
 - **Deck persistence** — Save/load multiple decks (not just current game state)
 - **Performance audit** — Profile with 40+ cards on battlefield, optimize re-renders
 - **Accessibility audit** — Screen reader support, keyboard-only navigation
-- **OBS integration testing** — Verify crop line works across resolutions
+- **OBS integration testing** — Verify `/stream` route renders full viewport correctly as OBS Virtual Camera source for SpellTable. Confirm hand cards show face-down, HD Zoom Portal is hidden, no UI chrome leaks.
 
 ## Tabled: Future Features (needs specs)
 - **LLM-powered equipment parser** — Replace regex stat/keyword extraction with semantic understanding

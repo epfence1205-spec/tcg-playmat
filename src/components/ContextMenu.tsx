@@ -11,8 +11,10 @@ export type ContextMenuAction =
   | { type: 'MORPH' }
   | { type: 'PHASE' }
   | { type: 'ADD_COUNTER'; counterType: CounterType }
+  | { type: 'REMOVE_COUNTER'; counterType: CounterType }
   | { type: 'ADD_POWER'; amount: number }
   | { type: 'ADD_TOUGHNESS'; amount: number }
+  | { type: 'RESET_PT' }
   | { type: 'EQUIP' }
   | { type: 'DETACH' }
   | { type: 'VIEW_DETAILS' }
@@ -22,7 +24,9 @@ export type ContextMenuAction =
   | { type: 'PLAY_TO_BATTLEFIELD' }
   | { type: 'PLAY_TAPPED' }
   | { type: 'PLAY_FACE_DOWN' }
-  | { type: 'PLAY_AS_BACK_FACE' };
+  | { type: 'PLAY_AS_BACK_FACE' }
+  | { type: 'MUTATE_ONTO' }
+  | { type: 'SPLIT_MUTATE_STACK' };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +39,8 @@ export interface ContextMenuProps {
   isEquipment: boolean;
   isDocked: boolean;
   isDFC: boolean;
+  hasMutateKeyword?: boolean;
+  hasMutateStack?: boolean;
   onAction: (action: ContextMenuAction) => void;
   onClose: () => void;
 }
@@ -50,7 +56,7 @@ const ALL_COUNTER_TYPES: CounterType[] = [
 
 // ─── Submenu Types ───────────────────────────────────────────────────────────
 
-type SubmenuId = 'move-to' | 'card-actions' | 'counters' | 'power' | 'toughness' | 'pt-combined' | 'token-copy' | null;
+type SubmenuId = 'move-to' | 'card-actions' | 'counters' | 'remove-counters' | 'power' | 'toughness' | 'pt-combined' | 'token-copy' | null;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -71,6 +77,8 @@ export function ContextMenu({
   isEquipment,
   isDocked,
   isDFC,
+  hasMutateKeyword = false,
+  hasMutateStack = false,
   onAction,
   onClose,
 }: ContextMenuProps) {
@@ -338,10 +346,31 @@ export function ContextMenu({
         {renderSubmenuTrigger('Card actions', 'card-actions')}
         {renderCardActionsSubmenu()}
       </div>
+      {hasMutateKeyword && renderMenuItem('Mutate onto...', null, () => handleAction({ type: 'MUTATE_ONTO' }))}
+      {hasMutateStack && renderMenuItem('Split Mutate Stack', null, () => handleAction({ type: 'SPLIT_MUTATE_STACK' }))}
       {renderDivider()}
       <div className="relative" onMouseEnter={() => openSubmenu('counters')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Add counters', 'counters')}
         {renderCountersSubmenu()}
+      </div>
+      <div className="relative" onMouseEnter={() => openSubmenu('remove-counters')} onMouseLeave={closeSubmenuDelayed}>
+        {renderSubmenuTrigger('Remove counters', 'remove-counters')}
+        {activeSubmenu === 'remove-counters' && (
+          <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-[60]`}>
+            <div className="grid grid-cols-4 gap-1">
+              {ALL_COUNTER_TYPES.map((ct) => (
+                <button
+                  key={ct}
+                  className="px-1.5 py-1 text-xs text-gray-200 bg-gray-700 rounded hover:bg-red-600 transition-colors truncate"
+                  title={`Remove ${ct}`}
+                  onClick={() => handleAction({ type: 'REMOVE_COUNTER', counterType: ct })}
+                >
+                  {ct}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="relative" onMouseEnter={() => openSubmenu('power')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Power +/-', 'power')}
@@ -374,6 +403,7 @@ export function ContextMenu({
       {renderMenuItem('Play Tapped', null, () => handleAction({ type: 'PLAY_TAPPED' }))}
       {renderMenuItem('Play Face-Down', null, () => handleAction({ type: 'PLAY_FACE_DOWN' }))}
       {isDFC && renderMenuItem('Play as Back Face', null, () => handleAction({ type: 'PLAY_AS_BACK_FACE' }))}
+      {hasMutateKeyword && renderMenuItem('Mutate onto...', null, () => handleAction({ type: 'MUTATE_ONTO' }))}
       {renderDivider()}
       <div className="relative" onMouseEnter={() => openSubmenu('move-to')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Move to', 'move-to')}

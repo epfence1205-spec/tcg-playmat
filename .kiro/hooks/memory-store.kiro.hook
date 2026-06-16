@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Memory Store",
+  "description": "After each agent session completes, store significant decisions, mistakes, or architectural insights into AgentCore Memory for future recall.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review what just happened in this session. If any of the following occurred, store it as a memory event using the bedrock-agentcore-memory MCP tool 'memory_create_event' with memoryId='TCGPlaymatDevMemory-FviglW4Uxn', actorId='kiro-dev', and a unique sessionId based on today's date and a short task description:\n\n1. An architectural rule was enforced or violated (severity: critical)\n2. A bug was found and fixed (severity: high)\n3. A decision was made about how to implement something (severity: medium)\n4. A mistake was made that should not be repeated (severity: high)\n5. A user preference was expressed about coding style (severity: low)\n\nInclude metadata with the event: feature, file, status, severity, and type fields. The payload should be conversational format describing what happened and why it matters for future sessions.\n\nIf the session was trivial (just a question answered, no code changes, no decisions), do NOT store anything. Only store memories that would genuinely help a future session avoid mistakes or make better decisions.\n\nCREDENTIAL REFRESH: If memory_create_event returns ExpiredTokenException, run this shell command first then retry:\nada credentials update --account=377426330998 --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once\nThe MCP server picks up fresh credentials automatically — no restart needed."
+  }
+}

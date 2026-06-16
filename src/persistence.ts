@@ -73,6 +73,8 @@ function patchRowCard(rc: RowCard): RowCard {
       ...att,
       card: patchCardData(att.card),
     })),
+    powerModifier: (rc as any).powerModifier ?? 0,
+    toughnessModifier: (rc as any).toughnessModifier ?? 0,
   };
 }
 

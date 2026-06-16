@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Memory Recall",
+  "description": "On each new prompt, retrieve relevant memories from AgentCore Memory to inject past decisions, mistakes, and architectural rules into context before starting work.",
+  "version": "1",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before starting work on this task, retrieve relevant memories from AgentCore Memory. Use the bedrock-agentcore-memory MCP server tool 'memory_retrieve_records' with: memoryId='TCGPlaymatDevMemory-FviglW4Uxn', namespace='tcg-playmat/kiro-dev', and a searchQuery derived from the user's request (focus on file names, feature areas, or component names mentioned). Use topK=5 and filter for severity 'critical' or 'high' when possible. If memories are returned, summarize them briefly at the start of your response as 'RECALLED CONTEXT' so the user can see what past knowledge is influencing your work. If no relevant memories exist yet, proceed normally without mentioning the recall attempt.\n\nCREDENTIAL REFRESH: If memory_retrieve_records returns ExpiredTokenException, run this shell command first then retry:\nada credentials update --account=377426330998 --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once\nThe MCP server picks up fresh credentials automatically — no restart needed."
+  }
+}

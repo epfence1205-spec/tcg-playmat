@@ -48,6 +48,21 @@ export function useHoveredCard(gameState: GameState) {
         setHoveredCardData({ card: found.card, keywords: found.card.keywords, counters: found.counters, attachments: found.attachments.map(a => a.card), zone, isFaceDown: found.isFaceDown });
         return;
       }
+      // Check inside mutate stacks and attachments for fanned-out cards
+      for (const rc of allBf) {
+        if (rc.mutateStack) {
+          const mutateCard = rc.mutateStack.find(c => c.id === cardId);
+          if (mutateCard) {
+            setHoveredCardData({ card: mutateCard, keywords: mutateCard.keywords, counters: [], attachments: [], zone, isFaceDown: false });
+            return;
+          }
+        }
+        const att = rc.attachments.find(a => a.card.id === cardId);
+        if (att) {
+          setHoveredCardData({ card: att.card, keywords: att.card.keywords, counters: [], attachments: [], zone, isFaceDown: false });
+          return;
+        }
+      }
     } else if (zone === 'hand') {
       const card = gameState.hand.find(c => c.id === cardId);
       if (card) { setHoveredCardData({ card, keywords: card.keywords, counters: [], attachments: [], zone, isFaceDown: false }); return; }

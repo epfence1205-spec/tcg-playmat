@@ -123,6 +123,9 @@ const rowCardArb: fc.Arbitrary<RowCard> = fc.record({
   attachments: fc.array(attachmentArb, { minLength: 0, maxLength: 3 }),
   counters: fc.array(counterArb, { minLength: 0, maxLength: 5 }),
   isRevealed: fc.boolean(),
+  mutateStack: fc.constant([]),
+  powerModifier: fc.integer({ min: -10, max: 10 }),
+  toughnessModifier: fc.integer({ min: -10, max: 10 }),
 });
 
 /** Generates a CreatureArea with 1-3 rows */

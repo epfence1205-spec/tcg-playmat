@@ -55,6 +55,9 @@ describe('persistence', () => {
       attachments: [],
       counters: [],
       isRevealed: false,
+      mutateStack: [],
+      powerModifier: 0,
+      toughnessModifier: 0,
     };
   }
 

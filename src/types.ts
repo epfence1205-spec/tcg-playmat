@@ -227,8 +227,14 @@ export interface RowCard {
   attachments: Attachment[];
   /** Counters placed on this card */
   counters: Counter[];
+  /** Cards merged underneath via Mutate. Empty array if not mutated. */
+  mutateStack: CardData[];
   /** Whether this card is revealed (spacebar toggle for hand cards) */
   isRevealed: boolean;
+  /** Temporary power modifier (from pump spells, not counters). Resets on soft reset. */
+  powerModifier: number;
+  /** Temporary toughness modifier (from pump spells, not counters). Resets on soft reset. */
+  toughnessModifier: number;
 }
 
 // ─── Creature Area ───────────────────────────────────────────────────────────
@@ -370,6 +376,23 @@ export interface GameState {
   lifeTotal: number;
   /** Current turn number (starts at 0, increments on Next Turn) */
   turnCount: number;
+}
+
+// ─── Mutate Targeting ────────────────────────────────────────────────────────
+
+/**
+ * State for mutate target selection mode.
+ * When active, valid targets are highlighted and non-valid cards are dimmed.
+ */
+export interface MutateTargetingState {
+  /** Whether target selection mode is active */
+  isActive: boolean;
+  /** The card ID initiating the mutate (source) */
+  sourceCardId: string | null;
+  /** Zone the source is in ('battlefield' or 'hand') */
+  sourceZone: 'battlefield' | 'hand' | null;
+  /** IDs of valid target creatures (precomputed on mode entry) */
+  validTargetIds: string[];
 }
 
 // ─── Drag State ──────────────────────────────────────────────────────────────

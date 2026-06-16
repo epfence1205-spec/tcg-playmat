@@ -8,6 +8,7 @@ import type {
   RowTarget,
   RowCard,
   GamePhase,
+  MutateTargetingState,
 } from '../types';
 import { RotationDiv } from './RotationDiv';
 import { computeCompression } from '../creatureLayout';
@@ -46,6 +47,10 @@ export interface BattlefieldProps {
   onCreatureAreaResize?: (widthVh: number) => void;
   /** Set of card instanceIds currently animating collapse before removal */
   collapsingIds?: Set<string>;
+  /** Mutate targeting state — highlights valid targets and dims non-valid cards */
+  mutateTargeting?: MutateTargetingState;
+  /** Called when a valid mutate target card is clicked during targeting mode */
+  onMutateTargetSelect?: (cardId: string) => void;
   /** Optional children rendered as overlays (e.g., toolbar buttons) */
   children?: React.ReactNode;
 }
@@ -80,6 +85,8 @@ export function Battlefield({
   onEquipmentAction,
   onCreatureAreaResize,
   collapsingIds,
+  mutateTargeting,
+  onMutateTargetSelect,
   children,
 }: BattlefieldProps) {
   // Suppress unused variable warnings for handlers used by DnD context
@@ -146,6 +153,8 @@ export function Battlefield({
                   onTapCard={onTapCard}
                   onEquipmentAction={onEquipmentAction}
                   collapsingIds={collapsingIds}
+                  mutateTargeting={mutateTargeting}
+                  onMutateTargetSelect={onMutateTargetSelect}
                 />
               ))}
             </div>
@@ -167,6 +176,8 @@ export function Battlefield({
             onTapCard={onTapCard}
             onEquipmentAction={onEquipmentAction}
             collapsingIds={collapsingIds}
+            mutateTargeting={mutateTargeting}
+            onMutateTargetSelect={onMutateTargetSelect}
           />
 
           {/* Row 4 — 1/5 (20%) of battlefield height */}
@@ -180,6 +191,8 @@ export function Battlefield({
             onTapCard={onTapCard}
             onEquipmentAction={onEquipmentAction}
             collapsingIds={collapsingIds}
+            mutateTargeting={mutateTargeting}
+            onMutateTargetSelect={onMutateTargetSelect}
           />
         </>
       )}
@@ -222,6 +235,8 @@ interface RowTrackProps {
   onTapCard: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
   collapsingIds?: Set<string>;
+  mutateTargeting?: MutateTargetingState;
+  onMutateTargetSelect?: (cardId: string) => void;
 }
 
 /**
@@ -229,7 +244,7 @@ interface RowTrackProps {
  * Cards compress (overlap) as the row fills up so everything always fits visible.
  * Supports drag-to-reorder within the row via @dnd-kit/sortable.
  */
-function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds }: RowTrackProps) {
+function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds, mutateTargeting, onMutateTargetSelect }: RowTrackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [negativeMargin, setNegativeMargin] = useState(0);
   const { setNodeRef, isOver } = useDroppable({
@@ -301,6 +316,8 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
               attachmentCount={el.attachments.length}
               isCollapsing={collapsingIds?.has(el.instanceId)}
               style={idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+              mutateTargeting={mutateTargeting}
+              onMutateTargetSelect={onMutateTargetSelect}
             >
               <RotationDiv
                 creature={el}
@@ -328,6 +345,8 @@ interface SplitRowTrackProps {
   onTapCard: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
   collapsingIds?: Set<string>;
+  mutateTargeting?: MutateTargetingState;
+  onMutateTargetSelect?: (cardId: string) => void;
 }
 
 /**
@@ -344,6 +363,8 @@ function SplitRowTrack({
   onTapCard,
   onEquipmentAction,
   collapsingIds,
+  mutateTargeting,
+  onMutateTargetSelect,
 }: SplitRowTrackProps) {
   const leftContainerRef = useRef<HTMLDivElement>(null);
   const rightContainerRef = useRef<HTMLDivElement>(null);
@@ -461,6 +482,8 @@ function SplitRowTrack({
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+                mutateTargeting={mutateTargeting}
+                onMutateTargetSelect={onMutateTargetSelect}
               >
                 <RotationDiv
                   creature={el}
@@ -508,6 +531,8 @@ function SplitRowTrack({
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
                 style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
+                mutateTargeting={mutateTargeting}
+                onMutateTargetSelect={onMutateTargetSelect}
               >
                 <RotationDiv
                   creature={el}

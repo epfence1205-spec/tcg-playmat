@@ -24,20 +24,24 @@ An advanced goldfishing tool (single-player playmat) with:
 **Goal:** A complete, bug-free goldfishing tool that handles all Commander board states gracefully.
 
 Key remaining work:
-- [ ] Battlefield sortable (drag-to-reorder within rows)
+- [x] Battlefield sortable (drag-to-reorder within rows)
 - [ ] Token system improvements
 - [ ] Undo/redo system hardening
 - [ ] Performance optimization for large board states (20+ creatures)
 
-- [ ] OBS Stream View (`/stream` route) — read-only spectate view for OBS Browser Source
-  - Hand cards rendered as face-down backs with count badge
+- [x] OBS Stream View (`/stream` route) — read-only view for OBS Virtual Camera (SpellTable feed)
+  - Renders full 100vw × 100vh (no crop line — OBS captures entire viewport)
+  - Hand cards (Zone C) rendered as face-down card backs with count badge
+  - HD Zoom Portal hidden (player-only tool, not visible to opponents)
+  - Mulligan UI hidden (private — opponents see empty board during mulligan)
   - Syncs from localStorage/BroadcastChannel (same machine, no server)
-  - Hides UI chrome (modals, import buttons, context menus)
+  - Hides UI chrome (modals, import buttons, context menus, keybind overlay)
   - No interactivity (pointer-events: none, no hover states)
   - Optional transparent background for OBS scene compositing
   - Fixed resolution layout for consistent OBS capture
+  - Zone C retains spatial layout (hand position/count visible) but no card faces
 
-**Exit criteria:** A single player can goldfish any commander deck without hitting bugs or missing interactions. The OBS stream view provides a clean, hand-hidden broadcast of the board state.
+**Exit criteria:** A single player can goldfish any commander deck without hitting bugs or missing interactions. The OBS stream view provides a clean virtual camera feed showing the full board with hand cards face-down, suitable for SpellTable.
 
 ---
 

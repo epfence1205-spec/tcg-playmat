@@ -4,6 +4,7 @@ import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
 import { calculateEffectiveStats, parseKeywords } from '../keywords';
 import { createRowCard } from '../gameActions';
+import { aggregateMutateKeywords } from '../mutateActions';
 import type { EquipmentAction } from './EquipmentDock';
 
 export interface RotationDivProps {
@@ -25,14 +26,30 @@ export function RotationDiv({
   const widthVh = computeOuterDivWidthVh(creature.isTapped, N);
   const heightVh = computeOuterDivHeightVh(creature.isTapped, N);
   const [isFannedOut, setIsFannedOut] = useState(false);
+  const [isMutateFannedOut, setIsMutateFannedOut] = useState(false);
   const [fanPosition, setFanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const outerRef = useRef<HTMLDivElement>(null);
 
   const grantedKeywords: KeywordAbility[] = [];
-  for (const att of creature.attachments) {
-    const kws = parseKeywords(att.card.oracleText);
-    for (const kw of kws) {
-      if (!grantedKeywords.includes(kw)) grantedKeywords.push(kw);
+  if (creature.mutateStack && creature.mutateStack.length > 0) {
+    // Mutated creature: aggregate keywords from all cards in the stack + equipment
+    for (const kw of aggregateMutateKeywords(creature)) {
+      grantedKeywords.push(kw);
+    }
+    // Also include equipment-granted keywords not already covered
+    for (const att of creature.attachments) {
+      const kws = parseKeywords(att.card.oracleText);
+      for (const kw of kws) {
+        if (!grantedKeywords.includes(kw)) grantedKeywords.push(kw);
+      }
+    }
+  } else {
+    // Non-mutated creature: only equipment-granted keywords
+    for (const att of creature.attachments) {
+      const kws = parseKeywords(att.card.oracleText);
+      for (const kw of kws) {
+        if (!grantedKeywords.includes(kw)) grantedKeywords.push(kw);
+      }
     }
   }
 
@@ -40,9 +57,32 @@ export function RotationDiv({
     createRowCard(att.card, creature.rowAssignment, 0)
   );
   const effectiveStats = calculateEffectiveStats(creature, attachmentRowCards);
+
+  // Counter modifiers: +1/+1 adds, -1/-1 subtracts
+  const plus1Count = creature.counters
+    .filter((c) => c.type === '+1/+1')
+    .reduce((sum, c) => sum + c.value, 0);
+  const minus1Count = creature.counters
+    .filter((c) => c.type === '-1/-1')
+    .reduce((sum, c) => sum + c.value, 0);
+
+  // Determine if basePower/baseToughness is non-numeric (e.g., "*")
+  const topBasePower = creature.card.basePower;
+  const topBaseToughness = creature.card.baseToughness;
+  const isNumericPower = topBasePower != null && !isNaN(parseInt(topBasePower, 10));
+  const isNumericToughness = topBaseToughness != null && !isNaN(parseInt(topBaseToughness, 10));
+
+  // Final displayed stats: if non-numeric, show raw value without modifiers
+  const displayedPower = isNumericPower
+    ? effectiveStats.modifiedPower + plus1Count - minus1Count + (creature.powerModifier ?? 0)
+    : topBasePower;
+  const displayedToughness = isNumericToughness
+    ? effectiveStats.modifiedToughness + plus1Count - minus1Count + (creature.toughnessModifier ?? 0)
+    : topBaseToughness;
+
   const hasModifiedStats =
-    effectiveStats.modifiedPower !== effectiveStats.basePower ||
-    effectiveStats.modifiedToughness !== effectiveStats.baseToughness;
+    (isNumericPower && displayedPower !== effectiveStats.basePower) ||
+    (isNumericToughness && displayedToughness !== effectiveStats.baseToughness);
 
   const outerStyle: React.CSSProperties = {
     width: `${widthVh}vh`,
@@ -62,6 +102,15 @@ export function RotationDiv({
         setFanPosition({ x: rect.left, y: rect.bottom + 4 });
       }
       setIsFannedOut((prev) => !prev);
+      return;
+    }
+    if (e.altKey && creature.mutateStack && creature.mutateStack.length > 0) {
+      e.stopPropagation();
+      if (outerRef.current) {
+        const rect = outerRef.current.getBoundingClientRect();
+        setFanPosition({ x: rect.left, y: rect.bottom + 4 });
+      }
+      setIsMutateFannedOut((prev) => !prev);
       return;
     }
     onTapCard(creature.instanceId);
@@ -96,32 +145,69 @@ export function RotationDiv({
       ))}
 
       {/* Creature wrapper — z-index N, contains card + all overlays */}
-      <div style={{ position: 'absolute', left: `${N * 2}vh`, top: 0, width: '11.43vh', height: '16vh', zIndex: N }}>
+      <div className="bg-black rounded-lg overflow-hidden" style={{ position: 'absolute', left: `${N * 2}vh`, top: 0, width: '11.43vh', height: '16vh', zIndex: N }}>
         <img
           src={creature.isFaceDown ? '/card-back.webp' : creature.showingBackFace && creature.card.backFaceImageURI ? creature.card.backFaceImageURI : creature.card.imageURI}
           alt={creature.isFaceDown ? 'Face-down card' : creature.card.name}
-          className="w-full h-full rounded-md pointer-events-none object-cover !z-0"
+          className="w-full h-full pointer-events-none object-cover !z-0"
           draggable={false}
         />
 
         {/* Overlays — static z-2, always above creature card image */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
-          {grantedKeywords.length > 0 && (
-            <div className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center" style={{ maxWidth: '10vh', transform: creature.isTapped ? 'rotate(-90deg)' : undefined, transition: 'transform 200ms ease' }}>
-              {grantedKeywords.map((kw) => (
-                <span key={kw} className="bg-purple-900/80 text-purple-200 text-[0.9vh] font-bold px-[0.4vh] py-[0.1vh] rounded-sm shadow">{kw}</span>
-              ))}
-            </div>
+          {creature.mutateStack && creature.mutateStack.length > 0 && (
+            <span className="absolute top-0 right-0 bg-indigo-600/90 text-white text-[0.9vh] font-bold px-[0.4vh] py-[0.1vh] rounded-sm shadow">
+              {1 + creature.mutateStack.length}
+            </span>
           )}
-          {creature.counters.length > 0 && (
-            <div className="absolute top-[5%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center" style={{ maxWidth: '10vh' }}>
-              {creature.counters.map((counter, idx) => (
-                <span key={`${counter.type}-${idx}`} className="bg-black/80 text-white font-bold rounded shadow inline-block" style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}>
-                  {counter.type === '+1/+1' || counter.type === '-1/-1' ? `${counter.type} ×${counter.value}` : `${counter.type}: ${counter.value}`}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Keyword badges — granted keywords + keyword counters, unified purple style */}
+          {(() => {
+            const KEYWORD_COUNTER_TYPES = new Set(['lifelink', 'hexproof', 'indestructible', 'shroud', 'flying', 'deathtouch', 'menace', 'trample', 'first_strike', 'double_strike', 'reach', 'vigilance', 'haste']);
+            const keywordCounters = creature.counters.filter(c => KEYWORD_COUNTER_TYPES.has(c.type) && c.value > 0);
+            const allKeywords = [...grantedKeywords];
+            for (const kc of keywordCounters) {
+              if (!allKeywords.includes(kc.type as any)) allKeywords.push(kc.type as any);
+            }
+            const numericCounters = creature.counters.filter(c => !KEYWORD_COUNTER_TYPES.has(c.type) && c.value !== 0);
+
+            return (
+              <>
+                {allKeywords.length > 0 && (
+                  <div className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center" style={{ maxWidth: '10vh', transform: creature.isTapped ? 'rotate(-90deg)' : undefined, transition: 'transform 200ms ease' }}>
+                    {allKeywords.map((kw) => (
+                      <span key={kw} className="bg-purple-900/80 text-purple-200 text-[0.9vh] font-bold px-[0.4vh] py-[0.1vh] rounded-sm shadow">{kw}</span>
+                    ))}
+                  </div>
+                )}
+                {numericCounters.length > 0 && (
+                  <div className="absolute bottom-[5%] left-[5%] flex flex-wrap gap-[0.3vh]" style={{ maxWidth: '8vh' }}>
+                    {(() => {
+                      // Net +1/+1 and -1/-1 counters against each other
+                      const plus = numericCounters.find(c => c.type === '+1/+1');
+                      const minus = numericCounters.find(c => c.type === '-1/-1');
+                      const plusVal = plus ? plus.value : 0;
+                      const minusVal = minus ? minus.value : 0;
+                      const net = plusVal - minusVal;
+                      const otherCounters = numericCounters.filter(c => c.type !== '+1/+1' && c.type !== '-1/-1');
+
+                      const badges: { label: string; key: string }[] = [];
+                      if (net > 0) badges.push({ label: `+1/+1 ×${net}`, key: '+1/+1' });
+                      else if (net < 0) badges.push({ label: `-1/-1 ×${Math.abs(net)}`, key: '-1/-1' });
+                      for (const c of otherCounters) {
+                        badges.push({ label: `${c.type}: ${c.value}`, key: `${c.type}-${c.value}` });
+                      }
+
+                      return badges.map((b) => (
+                        <span key={b.key} className="bg-black/80 text-white font-bold rounded shadow inline-block" style={{ fontSize: '1.1vh', padding: '0.2vh 0.5vh' }}>
+                          {b.label}
+                        </span>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {isCompressed && (
             <div className="absolute top-0 left-0 h-full flex flex-col items-center justify-center" style={{ width: '2.2vh' }}>
               <span className="text-white font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow" style={{ fontSize: '1vh', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1, minHeight: 0 }}>
@@ -129,14 +215,14 @@ export function RotationDiv({
               </span>
               {creature.card.cardType === 'creature' && (creature.showingBackFace ? creature.card.backFacePower : creature.card.basePower) != null && (
                 <span className="text-yellow-300 font-bold whitespace-nowrap bg-gray-900/90 px-[0.3vh] py-[0.2vh] rounded-sm shadow" style={{ fontSize: '1.2vh', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', flexShrink: 0 }}>
-                  {N > 0 ? `${effectiveStats.modifiedPower}/${effectiveStats.modifiedToughness}` : creature.showingBackFace ? `${creature.card.backFacePower}/${creature.card.backFaceToughness}` : `${creature.card.basePower}/${creature.card.baseToughness}`}
+                  {creature.showingBackFace ? `${creature.card.backFacePower}/${creature.card.backFaceToughness}` : `${displayedPower}/${displayedToughness}`}
                 </span>
               )}
             </div>
           )}
           {hasModifiedStats && (
-            <div className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-bold px-1 py-0.5 rounded" aria-label={`Modified stats: ${effectiveStats.modifiedPower}/${effectiveStats.modifiedToughness}`}>
-              {effectiveStats.modifiedPower}/{effectiveStats.modifiedToughness}
+            <div className="absolute bottom-[5%] right-[5%] bg-black/80 text-white font-bold rounded shadow" style={{ fontSize: '1.4vh', padding: '0.3vh 0.6vh' }} aria-label={`Modified stats: ${displayedPower}/${displayedToughness}`}>
+              {displayedPower}/{displayedToughness}
             </div>
           )}
           {creature.card.isTokenCopy && (
@@ -152,6 +238,38 @@ export function RotationDiv({
           <div className="fixed flex gap-3 z-[9999] bg-gray-900/95 p-3 rounded-xl shadow-2xl border border-gray-700" style={{ left: `${Math.min(fanPosition.x, window.innerWidth - 300)}px`, top: `${Math.min(fanPosition.y, window.innerHeight - 200)}px` }} onClick={(e) => e.stopPropagation()} role="group" aria-label="Fanned equipment attachments">
             {creature.attachments.map((attachment) => (
               <FannedCard key={attachment.instanceId} attachment={attachment} onAction={onEquipmentAction} onClose={() => { if (N <= 1) setIsFannedOut(false); }} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isMutateFannedOut && creature.mutateStack && creature.mutateStack.length > 0 && (
+        <div className="fixed inset-0 z-[9998]" onClick={(e) => { e.stopPropagation(); setIsMutateFannedOut(false); }}>
+          <div
+            className="fixed flex z-[9999] bg-gray-900/95 p-3 rounded-xl shadow-2xl border border-indigo-700"
+            style={{ left: `${Math.min(fanPosition.x, window.innerWidth - 300)}px`, top: `${Math.min(fanPosition.y, window.innerHeight - 200)}px` }}
+            onClick={(e) => e.stopPropagation()}
+            role="group"
+            aria-label="Fanned mutate stack"
+          >
+            {[creature.card, ...creature.mutateStack].map((card, index) => (
+              <div
+                key={`${card.id}-${index}`}
+                className="relative flex-shrink-0"
+                style={{ marginLeft: index === 0 ? 0 : '-56px', zIndex: index + 1 }}
+                data-card-id={card.id}
+                data-card-zone="battlefield"
+              >
+                <img
+                  src={card.imageURI}
+                  alt={card.name}
+                  className="w-[70px] h-[98px] rounded-md object-cover pointer-events-none"
+                  draggable={false}
+                />
+                <span className="absolute bottom-0 left-0 right-0 text-white text-[8px] font-medium text-center truncate bg-black/70 px-0.5 py-0.5 rounded-b-md">
+                  {card.name}
+                </span>
+              </div>
             ))}
           </div>
         </div>

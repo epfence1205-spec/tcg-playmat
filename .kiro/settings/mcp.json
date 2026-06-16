@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "bedrock-agentcore-memory": {
+      "command": "uv",
+      "args": [
+        "tool",
+        "run",
+        "--from",
+        "C:\\Users\\ernejfen\\Documents\\awslabs-mcp\\src\\amazon-bedrock-agentcore-mcp-server",
+        "awslabs.amazon-bedrock-agentcore-mcp-server.exe"
+      ],
+      "env": {
+        "AGENTCORE_ENABLE_TOOLS": "memory",
+        "AWS_REGION": "us-west-2",
+        "AWS_DEFAULT_REGION": "us-west-2",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "memory_retrieve_records",
+        "memory_create_event",
+        "memory_list_records",
+        "get_memory_guide"
+      ]
+    }
+  }
+}

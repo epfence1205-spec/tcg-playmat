@@ -8,6 +8,8 @@ import { PublicStack, calculateDelirium } from './components/PublicStack'
 import { HandTray } from './components/HandTray'
 import { DeckImportModal } from './components/DeckImportModal'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { CommanderZonePrompt, EMPTY_COMMANDER_PROMPT } from './components/CommanderZonePrompt'
+import type { CommanderPromptState } from './components/CommanderZonePrompt'
 import { ContextMenu } from './components/ContextMenu'
 import type { ContextMenuAction } from './components/ContextMenu'
 import { PeekModal } from './components/PeekModal'
@@ -23,6 +25,8 @@ import { resolveTokensFromCards, clearTokenCache } from './api/tokenResolver'
 import type { TokenDefinition } from './api/tokenResolver'
 import type { ScryfallCard } from './api/scryfallResolver'
 import { useGameState } from './hooks/useGameState'
+import { getValidMutateTargets, getCommandersInStack } from './mutateActions'
+import { useToastContext } from './contexts/ToastContext'
 import { useHoveredCard } from './hooks/useHoveredCard'
 import { useEquipmentDocking, getValidDockTargets } from './hooks/useEquipmentDocking'
 import { useErrorHandling } from './hooks/useErrorHandling'
@@ -34,7 +38,8 @@ import { attachEquipment, detachEquipment } from './equipmentActions'
 import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
 import { initializeMulligan } from './mulliganEngine'
 import { RotationDiv } from './components/RotationDiv'
-import type { GameState, CardData, Zone, RowTarget, CardType } from './types'
+import type { GameState, CardData, Zone, RowTarget, CardType, MutateTargetingState } from './types'
+import { useBroadcastPublisher } from './stream/useBroadcastPublisher'
 
 /**
  * Custom drop animation for smooth snap-back when a card is dropped
@@ -49,7 +54,7 @@ const dropAnimationConfig: DropAnimation = {
 function AppContent() {
   const { handleQuotaExceeded } = useErrorHandling()
 
-  const { state: gameState, setState: setGameState, undo, setCreatureAreaContainerWidthPx, getCreatureAreaWidthPx } = useGameState(handleQuotaExceeded)
+  const { state: gameState, setState: setGameState, undo, setCreatureAreaContainerWidthPx, getCreatureAreaWidthPx, mutateOnto, splitMutateStack, moveMutatedCreature } = useGameState(handleQuotaExceeded)
 
   // Drag state for DragOverlay
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -59,6 +64,21 @@ function AppContent() {
 
   // Equip mode: when set, next click on a creature attaches this equipment
   const [equipModeCardId, setEquipModeCardId] = useState<string | null>(null)
+
+  // Toast notifications
+  const { addToast } = useToastContext()
+
+  // Mutate targeting mode state
+  const [mutateTargeting, setMutateTargeting] = useState<MutateTargetingState>({ isActive: false, sourceCardId: null, sourceZone: null, validTargetIds: [] })
+
+  // Mutate placement dialog state (shown after selecting a valid target)
+  const [mutatePlacement, setMutatePlacement] = useState<{
+    isOpen: boolean
+    targetCardId: string
+  }>({ isOpen: false, targetCardId: '' })
+
+  // Commander zone prompt state (shown when mutated creature with commanders moves to graveyard/exile)
+  const [commanderPrompt, setCommanderPrompt] = useState<CommanderPromptState>(EMPTY_COMMANDER_PROMPT)
 
   // Cancel equip mode on Escape
   useEffect(() => {
@@ -72,6 +92,20 @@ function AppContent() {
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [equipModeCardId])
+
+  // Cancel mutate targeting mode on Escape
+  useEffect(() => {
+    if (!mutateTargeting.isActive) return
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMutateTargeting({ isActive: false, sourceCardId: null, sourceZone: null, validTargetIds: [] })
+        setMutatePlacement({ isOpen: false, targetCardId: '' })
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [mutateTargeting.isActive])
 
   // Hover tracking for HD Zoom Portal
   const { hoveredCardData } = useHoveredCard(gameState)
@@ -163,6 +197,24 @@ function AppContent() {
         {
           const cardId = action.cardId
           const dest = action.destination
+
+          // Check for commander prompt before animating (battlefield → graveyard/exile with mutated commander)
+          if ((dest === 'graveyard' || dest === 'exile')) {
+            const found = findCardOnBattlefield(gameState, cardId)
+            if (found && found.card.mutateStack.length > 0) {
+              const commanders = getCommandersInStack(found.card)
+              if (commanders.length > 0) {
+                setCommanderPrompt({
+                  isOpen: true,
+                  cardId,
+                  destination: dest as 'graveyard' | 'exile',
+                  commanders,
+                  choices: new Map(),
+                })
+                break
+              }
+            }
+          }
 
           // Always use fresh state inside updater — never rely on stale gameState closure
           setGameState((prev: GameState) => {
@@ -274,6 +326,9 @@ function AppContent() {
   const [showExileBrowser, setShowExileBrowser] = useState(false)
   const [revealedCardIds, setRevealedCardIds] = useState<Set<string>>(new Set())
 
+  // Broadcast game state to stream view via BroadcastChannel
+  useBroadcastPublisher(gameState, Array.from(revealedCardIds))
+
   // Persist deckTokens to localStorage when they change
   useEffect(() => {
     try {
@@ -295,6 +350,8 @@ function AppContent() {
     isEquipment: boolean
     isDocked: boolean
     isDFC: boolean
+    hasMutateKeyword: boolean
+    hasMutateStack: boolean
   }>({
     isOpen: false,
     position: { x: 0, y: 0 },
@@ -304,6 +361,8 @@ function AppContent() {
     isEquipment: false,
     isDocked: false,
     isDFC: false,
+    hasMutateKeyword: false,
+    hasMutateStack: false,
   })
 
   /** Opens context menu for a card at the given position */
@@ -313,6 +372,8 @@ function AppContent() {
     let isEquipment = false
     let isDocked = false
     let isDFC = false
+    let hasMutateKeyword = false
+    let hasMutateStack = false
 
     if (zone === 'battlefield') {
       const found = findCardOnBattlefield(gameState, cardId)
@@ -320,6 +381,8 @@ function AppContent() {
         cardType = found.card.card.cardType
         isDFC = found.card.card.backFaceImageURI !== null
         isEquipment = /\b(equipment|aura)\b/i.test(found.card.card.typeLine)
+        hasMutateKeyword = /\bmutate\b/i.test(found.card.card.oracleText)
+        hasMutateStack = found.card.mutateStack.length > 0
         // Check if this card is docked as an attachment on another card
         const allCards = getAllBattlefieldCards(gameState)
         isDocked = allCards.some(rc => rc.attachments.some(a => a.instanceId === cardId))
@@ -330,6 +393,7 @@ function AppContent() {
         cardType = card.cardType
         isDFC = card.backFaceImageURI !== null
         isEquipment = /\b(equipment|aura)\b/i.test(card.typeLine)
+        hasMutateKeyword = /\bmutate\b/i.test(card.oracleText)
       }
     } else if (zone === 'graveyard') {
       const card = gameState.graveyard.find(c => c.id === cardId)
@@ -363,6 +427,8 @@ function AppContent() {
       isEquipment,
       isDocked,
       isDFC,
+      hasMutateKeyword,
+      hasMutateStack,
     })
   }, [gameState])
 
@@ -443,7 +509,26 @@ function AppContent() {
             } catch { return prev }
           })
         } else {
-          // Normal zone move
+          // Normal zone move — check for commander prompt before moving
+          if (cardZone === 'battlefield' && (dest === 'graveyard' || dest === 'exile')) {
+            // Check if mutated creature with commanders needs prompting
+            const found = findCardOnBattlefield(gameState, cardId)
+            if (found && found.card.mutateStack.length > 0) {
+              const commanders = getCommandersInStack(found.card)
+              if (commanders.length > 0) {
+                // Show commander zone prompt instead of moving
+                setCommanderPrompt({
+                  isOpen: true,
+                  cardId,
+                  destination: dest as 'graveyard' | 'exile',
+                  commanders,
+                  choices: new Map(),
+                })
+                break
+              }
+            }
+          }
+          // No commander prompt needed — move normally
           setGameState((prev: GameState) => {
             try { return moveCard(prev, cardId, cardZone, dest as Zone) }
             catch { return prev }
@@ -466,21 +551,20 @@ function AppContent() {
       case 'ADD_COUNTER':
         setGameState((prev: GameState) => addCounter(prev, cardId, action.counterType))
         break
+      case 'REMOVE_COUNTER':
+        setGameState((prev: GameState) => removeCounter(prev, cardId, action.counterType))
+        break
       case 'ADD_POWER':
-        // Power modification via +1/+1 or -1/-1 counters
-        setGameState((prev: GameState) =>
-          action.amount > 0
-            ? addCounter(prev, cardId, '+1/+1')
-            : addCounter(prev, cardId, '-1/-1')
-        )
+        // Temporary power modifier (not a counter)
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc, powerModifier: (rc.powerModifier ?? 0) + action.amount
+        })))
         break
       case 'ADD_TOUGHNESS':
-        // Toughness modification via counters
-        setGameState((prev: GameState) =>
-          action.amount > 0
-            ? addCounter(prev, cardId, '+1/+1')
-            : addCounter(prev, cardId, '-1/-1')
-        )
+        // Temporary toughness modifier (not a counter)
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc, toughnessModifier: (rc.toughnessModifier ?? 0) + action.amount
+        })))
         break
       case 'TOKEN_COPY': {
         setGameState((prev: GameState) => {
@@ -589,11 +673,66 @@ function AppContent() {
           } catch { return prev }
         })
         break
+      case 'MUTATE_ONTO': {
+        // Initiate mutate target selection mode
+        const sourceZone = cardZone as 'battlefield' | 'hand'
+        const validTargets = getValidMutateTargets(gameState, cardId)
+        if (validTargets.length === 0) {
+          addToast({ type: 'info', message: 'No valid mutate targets' })
+        } else {
+          setMutateTargeting({
+            isActive: true,
+            sourceCardId: cardId,
+            sourceZone,
+            validTargetIds: validTargets.map(rc => rc.instanceId),
+          })
+        }
+        break
+      }
+      case 'SPLIT_MUTATE_STACK':
+        splitMutateStack(cardId)
+        break
     }
-  }, [contextMenu.cardId, contextMenu.cardZone, setGameState])
+  }, [contextMenu.cardId, contextMenu.cardZone, setGameState, gameState, addToast, splitMutateStack])
 
   const handleContextMenuClose = useCallback(() => {
     setContextMenu(prev => ({ ...prev, isOpen: false }))
+  }, [])
+
+  /** Handle clicking a card while in mutate targeting mode */
+  const handleMutateTargetClick = useCallback((cardId: string) => {
+    if (!mutateTargeting.isActive) return
+    if (!mutateTargeting.validTargetIds.includes(cardId)) return
+    // Show placement dialog
+    setMutatePlacement({ isOpen: true, targetCardId: cardId })
+  }, [mutateTargeting])
+
+  /** Handle mutate placement choice (Place on top / Place on bottom) */
+  const handleMutatePlacementChoice = useCallback((placement: 'over' | 'under') => {
+    const { sourceCardId, sourceZone } = mutateTargeting
+    const { targetCardId } = mutatePlacement
+    if (!sourceCardId || !sourceZone) return
+    mutateOnto(sourceCardId, targetCardId, placement, sourceZone)
+    // Exit targeting mode
+    setMutateTargeting({ isActive: false, sourceCardId: null, sourceZone: null, validTargetIds: [] })
+    setMutatePlacement({ isOpen: false, targetCardId: '' })
+  }, [mutateTargeting, mutatePlacement, mutateOnto])
+
+  /** Cancel mutate placement dialog */
+  const handleMutatePlacementCancel = useCallback(() => {
+    setMutatePlacement({ isOpen: false, targetCardId: '' })
+  }, [])
+
+  /** Handle commander zone prompt completion — call moveMutatedCreature with choices */
+  const handleCommanderPromptComplete = useCallback((choices: Map<string, 'commandZone' | 'graveyard' | 'exile'>) => {
+    const { cardId, destination } = commanderPrompt
+    moveMutatedCreature(cardId, destination, choices)
+    setCommanderPrompt(EMPTY_COMMANDER_PROMPT)
+  }, [commanderPrompt, moveMutatedCreature])
+
+  /** Cancel commander zone prompt — no state change */
+  const handleCommanderPromptCancel = useCallback(() => {
+    setCommanderPrompt(EMPTY_COMMANDER_PROMPT)
   }, [])
 
   const handleDraw = () => {
@@ -1171,11 +1310,36 @@ function AppContent() {
               })
             }
           }}
+          mutateTargeting={mutateTargeting}
+          onMutateTargetSelect={handleMutateTargetClick}
         >
           {/* Equip mode indicator */}
           {equipModeCardId && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-yellow-600 text-black text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg animate-pulse">
               Click a creature to equip — Esc to cancel
+            </div>
+          )}
+          {/* Mutate targeting mode indicator */}
+          {mutateTargeting.isActive && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg animate-pulse">
+              Select a mutate target — Esc to cancel
+            </div>
+          )}
+
+          {/* HD Zoom Portal — large card preview, right side of Zone A */}
+          {hoveredCardData.card && !hoveredCardData.isFaceDown && hoveredCardData.zone !== 'library' && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[60] pointer-events-none transition-opacity duration-200">
+              <div
+                className="bg-black rounded-lg overflow-hidden"
+                style={{ height: '33vh', aspectRatio: '488 / 680' }}
+              >
+                <img
+                  src={hoveredCardData.card.imageURILarge || hoveredCardData.card.imageURI}
+                  alt={hoveredCardData.card.name}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              </div>
             </div>
           )}
         </Battlefield>
@@ -1203,7 +1367,6 @@ function AppContent() {
           cards={gameState.hand}
           gamePhase={gameState.gamePhase}
           mulliganState={gameState.mulliganState}
-          hoveredCard={hoveredCardData.isFaceDown ? null : hoveredCardData.card}
           collapsingIds={collapsingIds}
           onDragStart={() => {}}
           onToggleReveal={(cardId) => {
@@ -1285,6 +1448,56 @@ function AppContent() {
         onCancel={handleDeckSwitchCancel}
       />
 
+      {/* Mutate Placement Dialog — Place on top or bottom */}
+      {mutatePlacement.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mutate placement choice"
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={handleMutatePlacementCancel}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 w-full max-w-xs mx-4 bg-gray-900 border border-indigo-500 rounded-xl shadow-2xl p-5 flex flex-col gap-3">
+            <h2 className="text-base font-semibold text-gray-100 text-center">Mutate Placement</h2>
+            <p className="text-sm text-gray-300 text-center">How should the card be placed?</p>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                onClick={() => handleMutatePlacementChoice('over')}
+              >
+                Place on top
+              </button>
+              <button
+                type="button"
+                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-500 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400"
+                onClick={() => handleMutatePlacementChoice('under')}
+              >
+                Place on bottom
+              </button>
+            </div>
+            <button
+              type="button"
+              className="mt-1 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors focus:outline-none"
+              onClick={handleMutatePlacementCancel}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Commander Zone Prompt — shown when mutated creature with commanders moves to graveyard/exile */}
+      <CommanderZonePrompt
+        prompt={commanderPrompt}
+        onComplete={handleCommanderPromptComplete}
+        onCancel={handleCommanderPromptCancel}
+      />
+
       {/* Context Menu — right-click on any card */}
       <ContextMenu
         isOpen={contextMenu.isOpen}
@@ -1295,6 +1508,8 @@ function AppContent() {
         isEquipment={contextMenu.isEquipment}
         isDocked={contextMenu.isDocked}
         isDFC={contextMenu.isDFC}
+        hasMutateKeyword={contextMenu.hasMutateKeyword}
+        hasMutateStack={contextMenu.hasMutateStack}
         onAction={handleContextMenuAction}
         onClose={handleContextMenuClose}
       />

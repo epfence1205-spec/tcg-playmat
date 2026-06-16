@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { StreamView } from './stream/StreamView'
 
 // Clear corrupted localStorage if it causes crashes
 try {
@@ -18,8 +19,10 @@ try {
   localStorage.removeItem('tcg-playmat-state')
 }
 
+const isStreamView = window.location.pathname === '/stream'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {isStreamView ? <StreamView /> : <App />}
   </StrictMode>,
 )

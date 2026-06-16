@@ -10,6 +10,7 @@ import type {
 import type { TokenDefinition } from './api/tokenResolver';
 import { recalculateCreatureRows, getTargetRowForNewCreature } from './creatureRows';
 import { getRowCards, setRowCards } from './sortableHelpers';
+import { separateMutateStack, getCommandersInStack } from './mutateActions';
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
@@ -76,6 +77,9 @@ export function createRowCard(
     attachments: [],
     counters: [],
     isRevealed: false,
+    mutateStack: [],
+    powerModifier: 0,
+    toughnessModifier: 0,
   };
 }
 
@@ -585,6 +589,57 @@ export function moveCard(
       if (s.row4.right.some(rc => rc.instanceId === cardId))
         s = { ...s, row4: { ...s.row4, right: clearAtt(s.row4.right) } };
       state = s;
+    }
+  }
+
+  // Handle mutate stack separation when moving from battlefield to non-battlefield zone
+  if (from === 'battlefield' && to !== 'battlefield') {
+    const mutateFound = findCardOnBattlefield(state, cardId);
+    if (mutateFound && mutateFound.card.mutateStack && mutateFound.card.mutateStack.length > 0) {
+      const rowCard = mutateFound.card;
+
+      if (to === 'graveyard' || to === 'exile') {
+        // Check for commanders in the stack — if present, defer to UI layer
+        const commanders = getCommandersInStack(rowCard);
+        if (commanders.length > 0) {
+          // Return state unchanged — the hook/UI will prompt for commander choices
+          // and call separateMutateStackWithCommanderChoice directly
+          return state;
+        }
+        // No commanders: separate stack and add all non-token cards to destination
+        const separatedCards = separateMutateStack(rowCard, false);
+        const { newState: removedState } = removeCardFromZone(state, 'battlefield', cardId);
+
+        let result = removedState;
+        for (const card of separatedCards) {
+          if (card.isToken) continue; // Token ephemerality
+          if (to === 'graveyard') {
+            result = { ...result, graveyard: [...result.graveyard, card] };
+          } else {
+            // exile
+            const exileCard: ExileCard = { card, isFaceDown: false };
+            result = { ...result, exile: [...result.exile, exileCard] };
+          }
+        }
+        return result;
+      }
+
+      if (to === 'hand' || to === 'library') {
+        // Exclude tokens when moving to hand/library
+        const separatedCards = separateMutateStack(rowCard, true);
+        const { newState: removedState } = removeCardFromZone(state, 'battlefield', cardId);
+
+        let result = removedState;
+        if (to === 'hand') {
+          for (const card of separatedCards) {
+            result = { ...result, hand: [...result.hand, card] };
+          }
+        } else {
+          // library — place on top in order: Top_Card first, then mutateStack entries
+          result = { ...result, library: [...separatedCards, ...result.library] };
+        }
+        return result;
+      }
     }
   }
 
