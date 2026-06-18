@@ -14,7 +14,6 @@ export function useAnimatedList<T extends { instanceId: string }>(
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
-    const prevIds = new Set(prevItemsRef.current.map(i => i.instanceId));
     const currentIds = new Set(items.map(i => i.instanceId));
 
     // Find removed items

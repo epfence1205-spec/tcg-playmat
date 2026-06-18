@@ -18,6 +18,24 @@ function deriveCardType(typeLine: string): CardData['cardType'] {
 }
 
 /**
+ * Helper to fill default fields for mock cards.
+ */
+function mockCard(partial: Omit<CardData, 'backFaceCardType' | 'backFaceName' | 'backFacePower' | 'backFaceToughness' | 'cmc' | 'manaCost' | 'colorIdentity' | 'producedMana' | 'landCategory'> & Partial<Pick<CardData, 'cmc' | 'manaCost' | 'colorIdentity' | 'producedMana' | 'landCategory'>>): CardData {
+  return {
+    backFaceCardType: null,
+    backFaceName: null,
+    backFacePower: null,
+    backFaceToughness: null,
+    cmc: 0,
+    manaCost: '',
+    colorIdentity: [],
+    producedMana: [],
+    landCategory: null,
+    ...partial,
+  };
+}
+
+/**
  * Mock cards for offline testing.
  * Uses placeholder images since Scryfall CDN requires internet.
  * Replace with real Scryfall URLs when online.
@@ -49,6 +67,10 @@ export const MOCK_COMMANDER: CardData = {
   imageURI: makeImg('Atraxa', 'Legendary Creature'),
   imageURILarge: makeImg('Atraxa', 'Legendary Creature'),
   backFaceImageURI: null,
+  backFaceCardType: null,
+  backFaceName: null,
+  backFacePower: null,
+  backFaceToughness: null,
   typeLine: 'Legendary Creature — Phyrexian Angel Horror',
   oracleText: 'Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.',
   isCommander: true,
@@ -58,10 +80,11 @@ export const MOCK_COMMANDER: CardData = {
   keywords: parseKeywords('Flying, vigilance, deathtouch, lifelink. At the beginning of your end step, proliferate.'),
   isToken: false,
   isTokenCopy: false,
-  cmc: 0,
-  manaCost: '',
-  colorIdentity: [],
+  cmc: 4,
+  manaCost: '{G}{W}{U}{B}',
+  colorIdentity: ['G', 'W', 'U', 'B'],
   producedMana: [],
+  landCategory: null,
 };
 
 export const MOCK_LIBRARY: CardData[] = [
@@ -73,6 +96,10 @@ export const MOCK_LIBRARY: CardData[] = [
     imageURI: makeImg('Lightning Bolt', 'Instant'),
     imageURILarge: makeImg('Lightning Bolt', 'Instant'),
     backFaceImageURI: null,
+    backFaceCardType: null,
+    backFaceName: null,
+    backFacePower: null,
+    backFaceToughness: null,
     typeLine: 'Instant',
     oracleText: 'Lightning Bolt deals 3 damage to any target.',
     isCommander: false,
@@ -82,6 +109,11 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
+    cmc: 1,
+    manaCost: '{R}',
+    colorIdentity: ['R'],
+    producedMana: [],
+    landCategory: null,
   },
   {
     id: 'mock-002',
@@ -91,6 +123,10 @@ export const MOCK_LIBRARY: CardData[] = [
     imageURI: makeImg('Counterspell', 'Instant'),
     imageURILarge: makeImg('Counterspell', 'Instant'),
     backFaceImageURI: null,
+    backFaceCardType: null,
+    backFaceName: null,
+    backFacePower: null,
+    backFaceToughness: null,
     typeLine: 'Instant',
     oracleText: 'Counter target spell.',
     isCommander: false,
@@ -100,8 +136,13 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
+    cmc: 2,
+    manaCost: '{U}{U}',
+    colorIdentity: ['U'],
+    producedMana: [],
+    landCategory: null,
   },
-  {
+  mockCard({
     id: 'mock-003',
     name: 'Sol Ring',
     setCode: 'c21',
@@ -118,8 +159,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-004',
     name: 'Swords to Plowshares',
     setCode: 'lea',
@@ -136,8 +177,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-005',
     name: 'Brainstorm',
     setCode: 'ice',
@@ -154,8 +195,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-006',
     name: 'Dark Ritual',
     setCode: 'lea',
@@ -172,8 +213,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-007',
     name: 'Path to Exile',
     setCode: 'con',
@@ -190,8 +231,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-008',
     name: 'Mana Crypt',
     setCode: 'mps',
@@ -208,8 +249,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-009',
     name: 'Rhystic Study',
     setCode: 'pcy',
@@ -226,8 +267,8 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
-  {
+  }),
+  mockCard({
     id: 'mock-010',
     name: 'Cyclonic Rift',
     setCode: 'rtr',
@@ -244,11 +285,11 @@ export const MOCK_LIBRARY: CardData[] = [
     keywords: [],
     isToken: false,
     isTokenCopy: false,
-  },
+  }),
   ...Array.from({ length: 50 }, (_, i) => {
     const landName = ['Island', 'Plains', 'Swamp', 'Forest', 'Mountain'][i % 5];
     const typeLine = `Basic Land — ${landName}`;
-    return {
+    return mockCard({
       id: `mock-land-${i + 1}`,
       name: landName,
       setCode: 'lea',
@@ -265,6 +306,7 @@ export const MOCK_LIBRARY: CardData[] = [
       keywords: [],
       isToken: false,
       isTokenCopy: false,
-    } as CardData;
+      landCategory: 'basic',
+    });
   }),
 ];

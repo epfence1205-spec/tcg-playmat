@@ -1,4 +1,4 @@
-import type { GameState, RowCard, CardType } from '../types';
+import type { GameState, CardType } from '../types';
 import { attachEquipment, detachEquipment } from '../equipmentActions';
 import { findCardOnBattlefield } from '../gameActions';
 

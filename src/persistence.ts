@@ -59,7 +59,7 @@ function serializeState(state: GameState): SerializedGameState {
  * when not present in persisted data (backward compatibility).
  */
 export function patchCardData(card: CardData): CardData {
-  return { ...card, landCategory: (card as Record<string, unknown>).landCategory ?? null };
+  return { ...card, landCategory: (card as unknown as Record<string, unknown>).landCategory as CardData['landCategory'] ?? null };
 }
 
 /**

@@ -1,5 +1,5 @@
 import { arrayMove } from '@dnd-kit/sortable';
-import type { GameState, RowCard, RowTarget, Attachment } from './types';
+import type { GameState, RowCard, RowTarget } from './types';
 import { getAllBattlefieldCards } from './gameActions';
 
 /**
