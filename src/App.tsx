@@ -112,6 +112,7 @@ function AppContent() {
 
   // Equipment docking via drag
   const { handleEquipmentDrop } = useEquipmentDocking(gameState, setGameState)
+  void handleEquipmentDrop; // retained for future UI wiring
 
   // Keybind engine — handles all keyboard shortcuts
   const handleGameAction = useCallback((action: GameAction) => {
@@ -334,8 +335,6 @@ function AppContent() {
     try {
       if (deckTokens.length > 0) {
         localStorage.setItem('tcg-playmat-deck-tokens', JSON.stringify(deckTokens))
-      } else {
-        localStorage.removeItem('tcg-playmat-deck-tokens')
       }
     } catch { /* quota exceeded — non-critical */ }
   }, [deckTokens])
@@ -1169,6 +1168,7 @@ function AppContent() {
   const handleSoftResetConfirm = () => {
     clearTokenCache()
     setDeckTokens([])
+    localStorage.removeItem('tcg-playmat-deck-tokens')
     setGameState((prev: GameState) => {
       try {
         return initializeMulligan(softReset(prev))
@@ -1195,6 +1195,7 @@ function AppContent() {
       setShowImportModal(true)
     }
   }
+  void handleDeckSwitchClick; // retained for future UI wiring
 
   const handleDeckSwitchConfirm = () => {
     clearTokenCache()
@@ -1243,6 +1244,7 @@ function AppContent() {
   const handleOpenImport = () => {
     setShowImportModal(true)
   }
+  void handleOpenImport; // retained for future UI wiring
 
   // Auto-show import modal on first load if no deck loaded
   useEffect(() => {
@@ -1619,7 +1621,7 @@ function AppContent() {
         isOpen={showTokenPanel}
         deckTokens={deckTokens}
         onCreateToken={(tokenDef, quantity) => {
-          setGameState((prev: GameState) => createTokens(prev, tokenDef, quantity))
+          setGameState((prev: GameState) => createTokens(prev, tokenDef, quantity, getCreatureAreaWidthPx(), window.innerHeight / 100))
         }}
         onClose={() => setShowTokenPanel(false)}
       />

@@ -392,7 +392,7 @@ export function addToBattlefield(
   if (!targetRow && card.cardType === 'creature' && containerWidthPx && vhToPx) {
     row = getTargetRowForNewCreature(state.creatureArea, containerWidthPx, vhToPx);
   }
-  return addRowCardToTarget(state, card, row);
+  return addRowCardToTarget(state, card, row, containerWidthPx, vhToPx);
 }
 
 /**
@@ -415,10 +415,12 @@ export function insertLandSorted(lands: RowCard[], card: CardData): RowCard[] {
 function addRowCardToTarget(
   state: GameState,
   card: CardData,
-  target: RowTarget
+  target: RowTarget,
+  containerWidthPx?: number,
+  vhToPx?: number
 ): GameState {
   if (target === 'creature-1' || target === 'creature-2' || target === 'creature-3' || target === 'pw-battle-column') {
-    return addToCreatureArea(state, card, target);
+    return addToCreatureArea(state, card, target, containerWidthPx, vhToPx);
   }
 
   if (target === 'row3-lands') {
@@ -445,7 +447,7 @@ function addRowCardToTarget(
   }
 
   // Fallback: add to creature-1
-  return addToCreatureArea(state, card, 'creature-1');
+  return addToCreatureArea(state, card, 'creature-1', containerWidthPx, vhToPx);
 }
 
 /**
@@ -457,7 +459,9 @@ function addRowCardToTarget(
 function addToCreatureArea(
   state: GameState,
   card: CardData,
-  target: RowTarget
+  target: RowTarget,
+  containerWidthPx?: number,
+  vhToPx?: number
 ): GameState {
   const rows = [...state.creatureArea.rows];
 
@@ -489,7 +493,11 @@ function addToCreatureArea(
     i === rowIdx ? { ...r, elements: newElements } : r
   );
 
-  const updatedCreatureArea = recalculateCreatureRows({ rows: newRows, totalElementCount: 0 });
+  const updatedCreatureArea = recalculateCreatureRows(
+    { rows: newRows, totalElementCount: 0 },
+    containerWidthPx ?? 0,
+    vhToPx ?? 10.8
+  );
 
   return {
     ...state,
@@ -998,7 +1006,9 @@ export function isGameInProgress(state: GameState): boolean {
 export function createTokens(
   state: GameState,
   tokenDef: TokenDefinition,
-  quantity: number
+  quantity: number,
+  containerWidthPx?: number,
+  vhToPx?: number
 ): GameState {
   if (quantity <= 0 || quantity > 10) return state;
 
@@ -1013,6 +1023,9 @@ export function createTokens(
       imageURILarge: tokenDef.imageURILarge,
       backFaceImageURI: null,
       backFaceCardType: null,
+      backFaceName: null,
+      backFacePower: null,
+      backFaceToughness: null,
       typeLine: tokenDef.typeLine,
       oracleText: tokenDef.oracleText,
       isCommander: false,
@@ -1024,10 +1037,11 @@ export function createTokens(
       manaCost: '',
       colorIdentity: [],
       producedMana: [],
+      landCategory: null,
       isToken: true,
       isTokenCopy: false,
     };
-    currentState = addToBattlefield(currentState, tokenCard);
+    currentState = addToBattlefield(currentState, tokenCard, undefined, containerWidthPx, vhToPx);
   }
   return currentState;
 }

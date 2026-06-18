@@ -39,6 +39,13 @@ export function TokenPanel({ isOpen, deckTokens, onCreateToken, onClose }: Token
   const panelRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Reset quantities when panel closes
+  useEffect(() => {
+    if (!isOpen) {
+      setQuantities({});
+    }
+  }, [isOpen]);
+
   // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
@@ -50,24 +57,6 @@ export function TokenPanel({ isOpen, deckTokens, onCreateToken, onClose }: Token
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    }
-    // Delay to avoid immediate close from the button click that opened it
-    const timer = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
   }, [isOpen, onClose]);
 
   // Debounced search
@@ -134,9 +123,16 @@ export function TokenPanel({ isOpen, deckTokens, onCreateToken, onClose }: Token
   const displayTokens = searchQuery.trim() ? searchResults : deckTokens;
 
   return (
-    <div
-      ref={panelRef}
-      className="fixed z-[100] bg-gray-800 border border-gray-600 rounded-lg shadow-2xl overflow-hidden"
+    <>
+      {/* Backdrop to catch outside clicks */}
+      <div
+        className="fixed inset-0 z-[99]"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        ref={panelRef}
+        className="fixed z-[100] bg-gray-800 border border-gray-600 rounded-lg shadow-2xl overflow-hidden"
       style={{
         bottom: 'calc(20vh + 8px)',
         left: '8px',
@@ -252,5 +248,6 @@ export function TokenPanel({ isOpen, deckTokens, onCreateToken, onClose }: Token
         ))}
       </div>
     </div>
+    </>
   );
 }
