@@ -3,9 +3,6 @@ import { useDroppable } from '@dnd-kit/core';
 import type { CardData, ExileCard, StackZone } from '../types';
 import { DraggableCard } from './DraggableCard';
 
-/** URL for the generic card back image (local asset) */
-const CARD_BACK_URL = '/card-back.webp';
-
 // ─── Delirium Calculation ────────────────────────────────────────────────────
 
 type DeliriumType =
@@ -171,14 +168,16 @@ function CommandZoneSection({ cards }: { cards: CardData[] }) {
 /** Library section — face-down stack with count, Draw and Shuffle buttons */
 function LibrarySection({
   libraryCount,
-  topCardId,
+  topCard,
   onDrawCard,
   onShuffle,
+  onBrowse,
 }: {
   libraryCount: number;
-  topCardId: string | null;
+  topCard: CardData | null;
   onDrawCard: () => void;
   onShuffle: () => void;
+  onBrowse: () => void;
 }) {
 
   return (
@@ -187,23 +186,12 @@ function LibrarySection({
         Library
       </h3>
       <div className="flex items-center justify-center flex-1 min-h-0">
-        {libraryCount > 0 ? (
-          <div
-            className="relative"
-            style={{ width: '11.43vh', height: '16vh' }}
-            data-card-id={topCardId}
-            data-card-zone="library"
-          >
-            <img
-              src={CARD_BACK_URL}
-              alt="Library (face-down)"
-              className="w-full h-full object-cover rounded-md"
-              draggable={false}
-            />
-            <span className="absolute bottom-1 right-1 bg-black/90 text-white text-xs font-bold px-1.5 py-0.5 rounded z-10">
-              {libraryCount}
-            </span>
-          </div>
+        {topCard ? (
+          <DraggableCard
+            card={topCard}
+            sourceZone="library"
+            isFaceDown
+          />
         ) : (
           <span className="text-gray-500 text-[10px] italic">Empty</span>
         )}
@@ -216,6 +204,14 @@ function LibrarySection({
           aria-label="Draw card from library"
         >
           Draw
+        </button>
+        <button
+          onClick={onBrowse}
+          disabled={libraryCount === 0}
+          className="flex-1 text-[10px] font-medium py-0.5 px-1 rounded bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white transition-colors"
+          aria-label="Browse library"
+        >
+          Browse
         </button>
         <button
           onClick={onShuffle}
@@ -315,7 +311,7 @@ export function PublicStack({
   onDropToZone: _onDropToZone,
   onDrawCard,
   onShuffle,
-  onBrowseLibrary: _onBrowseLibrary,
+  onBrowseLibrary,
   onBrowseGraveyard: _onBrowseGraveyard,
 }: PublicStackProps) {
   return (
@@ -328,9 +324,10 @@ export function PublicStack({
       <CommandZoneSection cards={commandZone} />
       <LibrarySection
         libraryCount={libraryCount}
-        topCardId={library.length > 0 ? library[0].id : null}
+        topCard={library.length > 0 ? library[0] : null}
         onDrawCard={onDrawCard}
         onShuffle={onShuffle}
+        onBrowse={onBrowseLibrary}
       />
       <GraveyardSection cards={graveyard} deliriumCount={deliriumCount} />
       <ExileSection cards={exile} />

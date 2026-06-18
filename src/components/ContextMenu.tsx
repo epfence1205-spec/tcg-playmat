@@ -26,7 +26,8 @@ export type ContextMenuAction =
   | { type: 'PLAY_FACE_DOWN' }
   | { type: 'PLAY_AS_BACK_FACE' }
   | { type: 'MUTATE_ONTO' }
-  | { type: 'SPLIT_MUTATE_STACK' };
+  | { type: 'SPLIT_MUTATE_STACK' }
+  | { type: 'BROWSE_ZONE' };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -430,6 +431,16 @@ export function ContextMenu({
         <>
           {renderDivider()}
           {renderMenuItem('Flip face-down', 'M', () => handleAction({ type: 'MORPH' }))}
+        </>
+      )}
+      {(cardZone === 'library' || cardZone === 'graveyard' || cardZone === 'exile') && (
+        <>
+          {renderDivider()}
+          {renderMenuItem(
+            `Browse ${cardZone === 'library' ? 'Library' : cardZone === 'graveyard' ? 'Graveyard' : 'Exile'}`,
+            cardZone === 'library' ? 'Ctrl+F' : cardZone === 'graveyard' ? 'Ctrl+Y' : null,
+            () => handleAction({ type: 'BROWSE_ZONE' })
+          )}
         </>
       )}
     </>

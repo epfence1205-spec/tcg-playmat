@@ -691,6 +691,15 @@ function AppContent() {
       case 'SPLIT_MUTATE_STACK':
         splitMutateStack(cardId)
         break
+      case 'BROWSE_ZONE':
+        if (cardZone === 'library') {
+          setShowLibraryBrowser(true)
+        } else if (cardZone === 'graveyard') {
+          setShowGraveyardBrowser(true)
+        } else if (cardZone === 'exile') {
+          setShowExileBrowser(true)
+        }
+        break
     }
   }, [contextMenu.cardId, contextMenu.cardZone, setGameState, gameState, addToast, splitMutateStack])
 
