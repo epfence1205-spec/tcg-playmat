@@ -2,8 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { CardData, Zone } from '../types';
 
-/** URL for the generic card back image (local asset) */
-const CARD_BACK_URL = '/card-back.webp';
+import { CARD_BACK_URL } from '../cardBack';
 
 export interface DraggableCardProps {
   /** The card data to render */

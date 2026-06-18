@@ -34,7 +34,7 @@ export interface ZoneBrowserProps {
   footerText?: string;
 }
 
-const CARD_BACK_URL = '/card-back.webp';
+import { CARD_BACK_URL } from '../cardBack';
 
 /**
  * ZoneBrowser — Universal searchable modal for browsing any card zone.

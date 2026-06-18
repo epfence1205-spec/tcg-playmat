@@ -2,6 +2,7 @@ import type { RowCard, KeywordAbility } from '../types';
 import { parseKeywords, calculateEffectiveStats } from '../keywords';
 import { createRowCard } from '../gameActions';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh } from '../creatureLayout';
+import { CARD_BACK_URL } from '../cardBack';
 
 export interface StreamCardProps {
   rowCard: RowCard;
@@ -93,7 +94,7 @@ export function StreamCard({ rowCard: creature, isCompressed = false }: StreamCa
 
   // Image source
   const imageSrc = creature.isFaceDown
-    ? '/card-back.webp'
+    ? CARD_BACK_URL
     : creature.showingBackFace && creature.card.backFaceImageURI
       ? creature.card.backFaceImageURI
       : creature.card.imageURI;

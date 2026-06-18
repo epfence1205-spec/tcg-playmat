@@ -3,6 +3,7 @@ import type { RowCard, KeywordAbility } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
 import { calculateEffectiveStats, parseKeywords } from '../keywords';
+import { CARD_BACK_URL } from '../cardBack';
 import { createRowCard } from '../gameActions';
 import { aggregateMutateKeywords } from '../mutateActions';
 import type { EquipmentAction } from './EquipmentDock';
@@ -147,7 +148,7 @@ export function RotationDiv({
       {/* Creature wrapper — z-index N, contains card + all overlays */}
       <div className="bg-black rounded-lg overflow-hidden" style={{ position: 'absolute', left: `${N * 2}vh`, top: 0, width: '11.43vh', height: '16vh', zIndex: N }}>
         <img
-          src={creature.isFaceDown ? '/card-back.webp' : creature.showingBackFace && creature.card.backFaceImageURI ? creature.card.backFaceImageURI : creature.card.imageURI}
+          src={creature.isFaceDown ? CARD_BACK_URL : creature.showingBackFace && creature.card.backFaceImageURI ? creature.card.backFaceImageURI : creature.card.imageURI}
           alt={creature.isFaceDown ? 'Face-down card' : creature.card.name}
           className="w-full h-full pointer-events-none object-cover !z-0"
           draggable={false}

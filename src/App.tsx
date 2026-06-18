@@ -35,6 +35,7 @@ import type { GameAction } from './hooks/useKeybinds'
 import { moveCard, tapCard, softReset, isGameInProgress, drawCard as drawCardAction, shuffleLibrary, untapAll, flipCard, transformDFC, findCardOnBattlefield, findCardZone, removeCardFromZone, addToBattlefield, createTokens, getAllBattlefieldCards, updateBattlefieldCard } from './gameActions'
 import { addCounter, removeCounter } from './counterActions'
 import { attachEquipment, detachEquipment } from './equipmentActions'
+import { CARD_BACK_URL } from './cardBack'
 import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
 import { initializeMulligan } from './mulliganEngine'
 import { RotationDiv } from './components/RotationDiv'
@@ -1699,7 +1700,7 @@ function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: Gam
       )
     }
     const src = bfCard.isFaceDown
-      ? '/card-back.webp'
+      ? CARD_BACK_URL
       : bfCard.showingBackFace && bfCard.card.backFaceImageURI
         ? bfCard.card.backFaceImageURI
         : bfCard.card.imageURI

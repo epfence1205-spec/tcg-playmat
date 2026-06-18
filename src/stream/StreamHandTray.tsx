@@ -1,4 +1,5 @@
 import type { CardData } from '../types';
+import { CARD_BACK_URL } from '../cardBack';
 
 export interface StreamHandTrayProps {
   hand: CardData[];
@@ -41,7 +42,7 @@ export function StreamHandTray({ hand, revealedIds }: StreamHandTrayProps) {
             {hand.map((card, index) => {
               const { rotation, translateY } = getStaticFanTransform(index, hand.length);
               const isRevealed = revealedIds.includes(card.id);
-              const imageSrc = isRevealed ? card.imageURI : '/card-back.webp';
+              const imageSrc = isRevealed ? card.imageURI : CARD_BACK_URL;
 
               return (
                 <div

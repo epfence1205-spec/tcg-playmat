@@ -1,7 +1,6 @@
 import type { GameState, CardData, ExileCard } from '../types';
+import { CARD_BACK_URL } from '../cardBack';
 import { calculateDelirium } from '../components/PublicStack';
-
-const CARD_BACK_URL = '/card-back.webp';
 
 export interface StreamPublicStackProps {
   state: GameState;
