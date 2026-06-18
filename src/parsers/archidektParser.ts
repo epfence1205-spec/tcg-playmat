@@ -1,3 +1,5 @@
+import { ARCHIDEKT_BASE } from '../api/proxyBase';
+
 /**
  * Archidekt decklist fetcher and parser.
  * Validates Archidekt URLs, fetches deck data from the Archidekt API,
@@ -56,9 +58,7 @@ export async function fetchArchidektDeck(url: string): Promise<ArchidektResult> 
     );
   }
 
-  const apiUrl = import.meta.env.DEV
-    ? `/api/archidekt/decks/${deckId}/`
-    : `https://archidekt.com/api/decks/${deckId}/`;
+  const apiUrl = `${ARCHIDEKT_BASE}/decks/${deckId}/`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);

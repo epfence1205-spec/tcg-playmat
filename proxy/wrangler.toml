@@ -1,0 +1,7 @@
+name = "tcg-playmat-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Free tier — no account billing needed
+# Deploy: npx wrangler deploy
+# Your worker URL will be: https://tcg-playmat-proxy.<your-subdomain>.workers.dev

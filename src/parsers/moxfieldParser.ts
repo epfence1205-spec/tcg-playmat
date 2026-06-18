@@ -1,3 +1,5 @@
+import { MOXFIELD_BASE } from '../api/proxyBase';
+
 /**
  * Moxfield decklist fetcher and parser.
  * Validates Moxfield URLs, fetches deck data from the Moxfield API,
@@ -73,7 +75,7 @@ export async function fetchMoxfieldDeck(url: string): Promise<MoxfieldResult> {
     );
   }
 
-  const apiUrl = `/api/moxfield/v3/decks/all/${deckId}`;
+  const apiUrl = `${MOXFIELD_BASE}/v3/decks/all/${deckId}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
