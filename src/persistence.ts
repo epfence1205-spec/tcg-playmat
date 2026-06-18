@@ -87,6 +87,7 @@ function deserializeState(data: SerializedGameState): GameState {
   return {
     ...data,
     turnCount: (data as any).turnCount ?? 0,
+    gameLog: (data as any).gameLog ?? [],
     hand: data.hand.map(patchCardData),
     library: data.library.map(patchCardData),
     graveyard: data.graveyard.map(patchCardData),
@@ -194,6 +195,7 @@ export function createEmptyGameState(): GameState {
     deckLoaded: false,
     lifeTotal: 40,
     turnCount: 0,
+    gameLog: [],
   };
 }
 

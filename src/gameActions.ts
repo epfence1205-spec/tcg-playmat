@@ -11,6 +11,7 @@ import type { TokenDefinition } from './api/tokenResolver';
 import { recalculateCreatureRows, getTargetRowForNewCreature } from './creatureRows';
 import { getRowCards, setRowCards } from './sortableHelpers';
 import { separateMutateStack, getCommandersInStack } from './mutateActions';
+import { logAction } from './gameLog';
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 
@@ -530,6 +531,35 @@ export function moveCard(
     throw new Error(`Cannot move card to the same zone: ${from}`);
   }
 
+  // Resolve card name before mutation for logging
+  const cardName = state.hand.find(c => c.id === cardId)?.name
+    ?? state.graveyard.find(c => c.id === cardId)?.name
+    ?? state.library.find(c => c.id === cardId)?.name
+    ?? state.commandZone.find(c => c.id === cardId)?.name
+    ?? state.exile.find(ec => ec.card.id === cardId)?.card.name
+    ?? findCardOnBattlefield(state, cardId)?.card.card.name
+    ?? null;
+
+  const result = _moveCardInternal(state, cardId, from, to, targetRow, containerWidthPx, vhToPx);
+
+  // Log the move (skip if state unchanged, e.g. commander prompt deferred)
+  if (result !== state && cardName) {
+    return logAction(result, `${cardName} → ${to}`);
+  }
+  return result;
+}
+
+/** Internal moveCard implementation (no logging). */
+function _moveCardInternal(
+  state: GameState,
+  cardId: string,
+  from: Zone,
+  to: Zone,
+  targetRow?: RowTarget,
+  containerWidthPx?: number,
+  vhToPx?: number
+): GameState {
+
   // Special case: battlefield-to-battlefield preserves full RowCard state
   if (from === 'battlefield' && to === 'battlefield') {
     const found = findCardOnBattlefield(state, cardId);
@@ -964,6 +994,7 @@ export function softReset(state: GameState): GameState {
     deckLoaded: true,
     lifeTotal: 40,
     turnCount: 0,
+    gameLog: [],
   };
 }
 

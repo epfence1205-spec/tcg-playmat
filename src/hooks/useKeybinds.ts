@@ -17,6 +17,7 @@ export type GameAction =
   | { type: 'BROWSE_EXILE' }
   | { type: 'UNDO' }
   | { type: 'TOGGLE_KEYBIND_OVERLAY' }
+  | { type: 'TOGGLE_GAME_LOG' }
   | { type: 'MOVE_CARD'; cardId: string; destination: Zone }
   | { type: 'TAP_CARD'; cardId: string }
   | { type: 'FLIP_CARD'; cardId: string }
@@ -148,6 +149,10 @@ export function useKeybinds({
         case '?':
           e.preventDefault();
           onAction({ type: 'TOGGLE_KEYBIND_OVERLAY' });
+          return;
+        case 'l':
+          e.preventDefault();
+          onAction({ type: 'TOGGLE_GAME_LOG' });
           return;
         case 'n':
           e.preventDefault();

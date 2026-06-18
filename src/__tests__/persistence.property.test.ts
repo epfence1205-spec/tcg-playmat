@@ -187,6 +187,7 @@ const gameStateArb: fc.Arbitrary<GameState> = fc.record({
   deckLoaded: fc.boolean(),
   lifeTotal: fc.integer({ min: 0, max: 100 }),
   turnCount: fc.integer({ min: 0, max: 50 }),
+  gameLog: fc.constant([]),
 });
 
 // ─── Helper: Deep equality that handles Set<string> ──────────────────────────

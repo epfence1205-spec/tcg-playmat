@@ -19,7 +19,7 @@ try {
   localStorage.removeItem('tcg-playmat-state')
 }
 
-const isStreamView = window.location.pathname === '/stream'
+const isStreamView = window.location.pathname.endsWith('/stream') || window.location.pathname.endsWith('/stream/')
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

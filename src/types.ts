@@ -376,6 +376,19 @@ export interface GameState {
   lifeTotal: number;
   /** Current turn number (starts at 0, increments on Next Turn) */
   turnCount: number;
+  /** Game action log (zone transitions, turn markers) */
+  gameLog: GameLogEntry[];
+}
+
+// ─── Game Log ────────────────────────────────────────────────────────────────
+
+export interface GameLogEntry {
+  /** Turn number when action occurred */
+  turn: number;
+  /** Timestamp (Date.now()) */
+  timestamp: number;
+  /** Human-readable description */
+  message: string;
 }
 
 // ─── Mutate Targeting ────────────────────────────────────────────────────────

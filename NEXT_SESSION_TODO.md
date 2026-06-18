@@ -66,6 +66,9 @@
 - **Token system improvements** — Better token creation UX, batch create, token search
 - **Undo/redo system hardening** — Edge cases with mutate stacks, equipment attachment ordering
 - **Performance optimization** — Large board states (20+ creatures), memoization audit
+- **Multi-select cards** — Shift+click or drag-box to select multiple cards, then move/tap/bounce as a group
+- **Cross-row drag reordering** — Drag a card from one battlefield row to another (e.g., creature row 1 → creature row 2) with visual insertion feedback
+- **Play history log** — Game log showing zone transitions and turn markers
 
 ## ~~Tabled: Battlefield Row Sortable~~ ✅ Implemented
 - Within-row reorder works via @dnd-kit/sortable (RowTrack and SplitRowTrack)

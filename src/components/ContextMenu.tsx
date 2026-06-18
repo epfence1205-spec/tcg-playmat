@@ -27,7 +27,9 @@ export type ContextMenuAction =
   | { type: 'PLAY_AS_BACK_FACE' }
   | { type: 'MUTATE_ONTO' }
   | { type: 'SPLIT_MUTATE_STACK' }
-  | { type: 'BROWSE_ZONE' };
+  | { type: 'BROWSE_ZONE' }
+  | { type: 'DRAW_CARD' }
+  | { type: 'SHUFFLE_LIBRARY' };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -437,10 +439,16 @@ export function ContextMenu({
         <>
           {renderDivider()}
           {renderMenuItem(
-            `Browse ${cardZone === 'library' ? 'Library' : cardZone === 'graveyard' ? 'Graveyard' : 'Exile'}`,
+            `Search ${cardZone === 'library' ? 'Library' : cardZone === 'graveyard' ? 'Graveyard' : 'Exile'}`,
             cardZone === 'library' ? 'Ctrl+F' : cardZone === 'graveyard' ? 'Ctrl+Y' : null,
             () => handleAction({ type: 'BROWSE_ZONE' })
           )}
+        </>
+      )}
+      {cardZone === 'library' && (
+        <>
+          {renderMenuItem('Draw', 'D', () => handleAction({ type: 'DRAW_CARD' }))}
+          {renderMenuItem('Shuffle', null, () => handleAction({ type: 'SHUFFLE_LIBRARY' }))}
         </>
       )}
     </>

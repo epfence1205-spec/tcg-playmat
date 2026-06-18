@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DragOverlay } from '@dnd-kit/core'
-import type { DragStartEvent, DragEndEvent, DropAnimation } from '@dnd-kit/core'
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { AppShell } from './components/AppShell'
 import { Battlefield } from './components/Battlefield'
@@ -17,6 +17,7 @@ import { PeekModeSelector } from './components/PeekModeSelector'
 import type { PeekMode, PeekResult } from './peekActions'
 import { applyPeekResult } from './peekActions'
 import { KeybindOverlay } from './components/KeybindOverlay'
+import { GameLogOverlay } from './components/GameLogOverlay'
 import { ZoneBrowser } from './components/ZoneBrowser'
 import type { ZoneBrowserCard, ZoneBrowserDestination } from './components/ZoneBrowser'
 import { TokenPanel } from './components/TokenPanel'
@@ -36,21 +37,12 @@ import { moveCard, tapCard, softReset, isGameInProgress, drawCard as drawCardAct
 import { addCounter, removeCounter } from './counterActions'
 import { attachEquipment, detachEquipment } from './equipmentActions'
 import { CARD_BACK_URL } from './cardBack'
+import { logAction } from './gameLog'
 import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
 import { initializeMulligan } from './mulliganEngine'
 import { RotationDiv } from './components/RotationDiv'
 import type { GameState, CardData, Zone, RowTarget, CardType, MutateTargetingState } from './types'
 import { useBroadcastPublisher } from './stream/useBroadcastPublisher'
-
-/**
- * Custom drop animation for smooth snap-back when a card is dropped
- * outside any valid zone. Uses a CSS ease timing function and 250ms
- * duration to create a natural-feeling return animation.
- */
-const dropAnimationConfig: DropAnimation = {
-  duration: 250,
-  easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
-}
 
 function AppContent() {
   const { handleQuotaExceeded } = useErrorHandling()
@@ -119,16 +111,24 @@ function AppContent() {
   const handleGameAction = useCallback((action: GameAction) => {
     switch (action.type) {
       case 'DRAW':
-        setGameState((prev: GameState) => drawCardAction(prev))
+        setGameState((prev: GameState) => {
+          const next = drawCardAction(prev)
+          const drawn = next.hand[next.hand.length - 1]
+          return drawn ? logAction(next, `Drew ${drawn.name}`) : next
+        })
         break
       case 'SHUFFLE':
-        setGameState((prev: GameState) => shuffleLibrary(prev))
+        setGameState((prev: GameState) => logAction(shuffleLibrary(prev), 'Shuffled library'))
         break
       case 'UNTAP_ALL':
         setGameState((prev: GameState) => untapAll(prev))
         break
       case 'NEXT_TURN':
-        setGameState((prev: GameState) => ({ ...drawCardAction(untapAll(prev)), turnCount: prev.turnCount + 1 }))
+        setGameState((prev: GameState) => {
+          const next = { ...drawCardAction(untapAll(prev)), turnCount: prev.turnCount + 1 }
+          const drawn = next.hand[next.hand.length - 1]
+          return logAction(next, drawn ? `Turn ${next.turnCount} — Drew ${drawn.name}` : `Turn ${next.turnCount}`)
+        })
         break
       case 'NEW_GAME':
         setShowResetConfirm(true)
@@ -290,6 +290,9 @@ function AppContent() {
       case 'TOGGLE_KEYBIND_OVERLAY':
         setShowKeybindOverlay(prev => !prev)
         break
+      case 'TOGGLE_GAME_LOG':
+        setShowGameLog(prev => !prev)
+        break
       default:
         break
     }
@@ -323,6 +326,7 @@ function AppContent() {
   const [peekCount, setPeekCount] = useState(0)
   const [peekMode, setPeekMode] = useState<PeekMode>('peek')
   const [showKeybindOverlay, setShowKeybindOverlay] = useState(false)
+  const [showGameLog, setShowGameLog] = useState(false)
   const [showLibraryBrowser, setShowLibraryBrowser] = useState(false)
   const [showGraveyardBrowser, setShowGraveyardBrowser] = useState(false)
   const [showExileBrowser, setShowExileBrowser] = useState(false)
@@ -700,6 +704,12 @@ function AppContent() {
         } else if (cardZone === 'exile') {
           setShowExileBrowser(true)
         }
+        break
+      case 'DRAW_CARD':
+        setGameState((prev: GameState) => drawCardAction(prev))
+        break
+      case 'SHUFFLE_LIBRARY':
+        setGameState((prev: GameState) => shuffleLibrary(prev))
         break
     }
   }, [contextMenu.cardId, contextMenu.cardZone, setGameState, gameState, addToast, splitMutateStack])
@@ -1235,6 +1245,7 @@ function AppContent() {
         deckLoaded: true,
         lifeTotal: 40,
         turnCount: 0,
+        gameLog: [],
       }
       // Initialize mulligan: draws 7 from library, sets gamePhase = 'MULLIGAN'
       return initializeMulligan(freshState)
@@ -1275,7 +1286,7 @@ function AppContent() {
                 @dnd-kit DragOverlay uses CSS transform for GPU-accelerated cursor tracking.
                 dropAnimation uses a smooth ease-out curve for snap-back on invalid drops. */}
             <DragOverlay
-              dropAnimation={dropAnimationConfig}
+              dropAnimation={null}
               style={{ zIndex: 9999 }}
             >
               {activeDragId ? (
@@ -1562,6 +1573,14 @@ function AppContent() {
         onClose={() => setShowKeybindOverlay(false)}
       />
 
+      {/* Game Log Overlay — L key toggles play history */}
+      <GameLogOverlay
+        isOpen={showGameLog}
+        entries={gameState.gameLog}
+        currentTurn={gameState.turnCount}
+        onClose={() => setShowGameLog(false)}
+      />
+
       {/* Library Browser — Ctrl+F opens searchable library view */}
       <ZoneBrowser
         zoneName="Library"
@@ -1725,6 +1744,15 @@ function DragOverlayCard({ cardId, gameState }: { cardId: string; gameState: Gam
     return (
       <div className="pointer-events-none" style={{ willChange: 'transform' }}>
         <img src={gyCard.imageURI} alt={gyCard.name} className="w-[11.43vh] h-[16vh] object-cover rounded-md shadow-2xl" draggable={false} />
+      </div>
+    )
+  }
+
+  const libCard = gameState.library.find(c => c.id === cardId)
+  if (libCard) {
+    return (
+      <div className="pointer-events-none" style={{ willChange: 'transform' }}>
+        <img src={libCard.imageURI} alt={libCard.name} className="w-[11.43vh] h-[16vh] object-cover rounded-md shadow-2xl" draggable={false} />
       </div>
     )
   }

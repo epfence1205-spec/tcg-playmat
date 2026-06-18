@@ -79,6 +79,7 @@ describe('persistence', () => {
       deckLoaded: true,
       lifeTotal: 40,
       turnCount: 0,
+      gameLog: [],
     };
   }
 
@@ -101,6 +102,8 @@ describe('persistence', () => {
       },
       deckLoaded: true,
       lifeTotal: 40,
+      turnCount: 0,
+      gameLog: [],
     };
   }
 
@@ -265,6 +268,7 @@ describe('persistence', () => {
         deckLoaded: false,
         lifeTotal: 40,
         turnCount: 0,
+        gameLog: [],
       });
     });
 

@@ -170,57 +170,35 @@ function LibrarySection({
   libraryCount,
   topCard,
   onDrawCard,
-  onShuffle,
-  onBrowse,
 }: {
   libraryCount: number;
   topCard: CardData | null;
   onDrawCard: () => void;
-  onShuffle: () => void;
-  onBrowse: () => void;
 }) {
 
   return (
     <DroppableSection id="library" className="flex-1">
-      <h3 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide mb-0.5 shrink-0 relative z-10">
-        Library
-      </h3>
+      <div className="flex items-center justify-between mb-0.5 shrink-0 relative z-10">
+        <h3 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">
+          Library
+        </h3>
+        <span className="text-[10px] font-bold text-gray-200">
+          {libraryCount}
+        </span>
+      </div>
       <div className="flex items-center justify-center flex-1 min-h-0">
         {topCard ? (
           <DraggableCard
+            key="library-top"
             card={topCard}
             sourceZone="library"
             isFaceDown
+            className="!transition-none"
+            onClick={onDrawCard}
           />
         ) : (
           <span className="text-gray-500 text-[10px] italic">Empty</span>
         )}
-      </div>
-      <div className="flex gap-0.5 mt-1 shrink-0 relative z-10">
-        <button
-          onClick={onDrawCard}
-          disabled={libraryCount === 0}
-          className="flex-1 text-[10px] font-medium py-0.5 px-1 rounded bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:text-gray-500 text-white transition-colors"
-          aria-label="Draw card from library"
-        >
-          Draw
-        </button>
-        <button
-          onClick={onBrowse}
-          disabled={libraryCount === 0}
-          className="flex-1 text-[10px] font-medium py-0.5 px-1 rounded bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:text-gray-500 text-white transition-colors"
-          aria-label="Browse library"
-        >
-          Browse
-        </button>
-        <button
-          onClick={onShuffle}
-          disabled={libraryCount === 0}
-          className="flex-1 text-[10px] font-medium py-0.5 px-1 rounded bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white transition-colors"
-          aria-label="Shuffle library"
-        >
-          Shuffle
-        </button>
       </div>
     </DroppableSection>
   );
@@ -310,8 +288,8 @@ export function PublicStack({
   deliriumCount,
   onDropToZone: _onDropToZone,
   onDrawCard,
-  onShuffle,
-  onBrowseLibrary,
+  onShuffle: _onShuffle,
+  onBrowseLibrary: _onBrowseLibrary,
   onBrowseGraveyard: _onBrowseGraveyard,
 }: PublicStackProps) {
   return (
@@ -326,8 +304,6 @@ export function PublicStack({
         libraryCount={libraryCount}
         topCard={library.length > 0 ? library[0] : null}
         onDrawCard={onDrawCard}
-        onShuffle={onShuffle}
-        onBrowse={onBrowseLibrary}
       />
       <GraveyardSection cards={graveyard} deliriumCount={deliriumCount} />
       <ExileSection cards={exile} />
