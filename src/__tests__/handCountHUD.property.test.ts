@@ -87,6 +87,8 @@ function gameStateWithHandAndLibrary(
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    gameLog: [],
+    turnCount: 0,
   }));
 }
 
@@ -171,6 +173,8 @@ describe('Property 31: Hand Count HUD Accuracy', () => {
           mulliganState: null,
           deckLoaded: true,
           lifeTotal: 40,
+          gameLog: [],
+          turnCount: 0,
         })),
         (state) => {
           const cardToMove = state.graveyard[0];

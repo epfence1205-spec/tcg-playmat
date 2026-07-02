@@ -7,13 +7,14 @@ import {
   useSensor,
   pointerWithin,
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
 
 interface AppShellProps {
   children?: React.ReactNode;
   /** Overlay content rendered inside DndContext but outside the grid (e.g., DragOverlay) */
   overlay?: React.ReactNode;
   onDragStart?: (event: DragStartEvent) => void;
+  onDragOver?: (event: DragOverEvent) => void;
   onDragEnd?: (event: DragEndEvent) => void;
 }
 
@@ -41,7 +42,7 @@ interface AppShellProps {
  * - Global keybind event listener (placeholder, wired in task 11.1)
  * - overflow: hidden on root to prevent scrollbars
  */
-export function AppShell({ children, overlay, onDragStart, onDragEnd }: AppShellProps) {
+export function AppShell({ children, overlay, onDragStart, onDragOver, onDragEnd }: AppShellProps) {
   // Configure dnd-kit sensors
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint: {
@@ -75,6 +76,7 @@ export function AppShell({ children, overlay, onDragStart, onDragEnd }: AppShell
       sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
+      onDragOver={(event) => onDragOver?.(event)}
       onDragEnd={handleDragEnd}
     >
       <div

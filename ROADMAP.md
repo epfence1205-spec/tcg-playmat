@@ -108,6 +108,7 @@ Key work:
 - [ ] Sound effects / animations
 - [ ] Accessibility improvements
 - [ ] Performance at scale (many concurrent games)
+- [ ] Free placement toggle (disable type-based auto-assign on hand-to-battlefield drag)
 
 **Exit criteria:** You could show this to a stranger and they'd use it without explanation.
 

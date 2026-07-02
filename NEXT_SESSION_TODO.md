@@ -62,13 +62,14 @@
 - ~~**OBS Stream View**~~ ✅ Done — `/stream` route mirrors player view with card-backs in hand, no UI chrome
 - ~~**HD Zoom Portal upgrade**~~ ✅ Done — Moved to Zone A (33vh), library hover suppressed, corner clipping
 - ~~**Counter system overhaul**~~ ✅ Done — Keyword counters unified with equipment keywords, P/T modifiers separate from counters, +1/+1 netting, remove counter menu
-- **Fix token persistence bug** — Remove `localStorage.removeItem` from deckTokens useEffect
-- **Token system improvements** — Better token creation UX, batch create, token search
+- ~~**Fix token persistence bug**~~ ✅ Done — Removed `localStorage.removeItem` from deckTokens useEffect, clearing moved to soft reset handler
+- ~~**Token system improvements**~~ ✅ Done — Quantity selector (1-5), Scryfall search, deck tokens pre-loaded
 - **Undo/redo system hardening** — Edge cases with mutate stacks, equipment attachment ordering
 - **Performance optimization** — Large board states (20+ creatures), memoization audit
 - **Multi-select cards** — Shift+click or drag-box to select multiple cards, then move/tap/bounce as a group
-- **Cross-row drag reordering** — Drag a card from one battlefield row to another (e.g., creature row 1 → creature row 2) with visual insertion feedback
-- **Play history log** — Game log showing zone transitions and turn markers
+- **Cross-row drag reordering** — ~~Drag a card from one battlefield row to another (e.g., creature row 1 → creature row 2) with visual insertion feedback~~ In progress — onDragOver mid-drag transfer with free placement between all battlefield rows
+- **Play history log** — ~~Game log showing zone transitions and turn markers~~ ✅ Done
+- **Counter/P/T UX upgrades** — Context menu shows existing counters for quick +/- increment; separate P/T modifier (no counter) for tribal lords and anthem effects
 
 ## ~~Tabled: Battlefield Row Sortable~~ ✅ Implemented
 - Within-row reorder works via @dnd-kit/sortable (RowTrack and SplitRowTrack)
@@ -90,6 +91,7 @@
 - **OBS integration testing** — Verify `/stream` route renders full viewport correctly as OBS Virtual Camera source for SpellTable. Confirm hand cards show face-down, HD Zoom Portal is hidden, no UI chrome leaks.
 
 ## Tabled: Future Features (needs specs)
+- **Free placement toggle** — Settings option to disable type-based auto-assign on hand-to-battlefield play (allow drag from hand directly to any row). Table for Phase 5.
 - **LLM-powered equipment parser** — Replace regex stat/keyword extraction with semantic understanding
 - **Reveal vs private peek distinction** — Scry/surveil are private (not shown to opponents); discover/cascade/impulse are revealed (public). Add a `revealed` flag to peek modes with visual differentiation in the OBS broadcast zone. Depends on multiplayer or stream-aware context to be meaningful.
 - **Cascade/Discover mode** — Reveal cards one-at-a-time from top until a valid target is hit (MV < source). Different from fixed-N peek since count is unknown upfront. Needs its own sequential reveal UI.

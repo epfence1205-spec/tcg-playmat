@@ -53,6 +53,7 @@ function makeEmptyState(): GameState {
     deckLoaded: true,
     lifeTotal: 40,
     turnCount: 0,
+    gameLog: [],
   };
 }
 

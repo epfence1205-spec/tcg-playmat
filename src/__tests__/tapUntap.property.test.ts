@@ -131,6 +131,8 @@ const gameStateWithBattlefieldCardsArb: fc.Arbitrary<GameState> = fc.record({
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    turnCount: 0,
+    gameLog: [],
   };
 });
 
@@ -174,6 +176,8 @@ const gameStateWithAtLeastOneCardArb: fc.Arbitrary<GameState> = fc.record({
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    turnCount: 0,
+    gameLog: [],
   };
 });
 

@@ -97,6 +97,8 @@ function gameStateArb(): fc.Arbitrary<GameState> {
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    gameLog: [],
+    turnCount: 0,
   }));
 }
 

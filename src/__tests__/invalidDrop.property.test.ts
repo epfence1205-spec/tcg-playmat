@@ -94,6 +94,8 @@ const gameStateArb: fc.Arbitrary<GameState> = fc
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    turnCount: 0,
+    gameLog: [],
   }));
 
 /** Non-battlefield zones for same-zone move tests */

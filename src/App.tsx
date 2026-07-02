@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DragOverlay } from '@dnd-kit/core'
-import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core'
+import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { AppShell } from './components/AppShell'
 import { Battlefield } from './components/Battlefield'
@@ -763,6 +763,65 @@ function AppContent() {
     setActiveDragId(event.active.id as string)
   }
 
+  // Cross-row mid-drag transfer: moves card between rows while dragging
+  // so that the destination SortableContext picks it up for displacement.
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over) return
+
+    const sourceZone = active.data.current?.sourceZone as string | undefined
+    if (sourceZone !== 'battlefield') return // Only cross-row for battlefield cards
+
+    const activeRowId = active.data.current?.rowId as RowTarget | undefined
+    if (!activeRowId) return
+
+    // Determine the row of the "over" target
+    let overRowId: RowTarget | undefined
+    const overData = over.data.current
+
+    if (overData?.rowId) {
+      overRowId = overData.rowId as RowTarget
+    } else if ((over.id as string).startsWith('row-')) {
+      // Dropping on the row droppable itself
+      overRowId = (over.id as string).replace('row-', '') as RowTarget
+    }
+
+    if (!overRowId || activeRowId === overRowId) return // Same row or no target row
+
+    // Don't transfer if this is an equipment/aura dock attempt
+    const cardId = active.data.current?.cardId as string
+    const overCardType = overData?.cardType as string | undefined
+    if (overCardType === 'creature' && overData?.sourceZone === 'battlefield') {
+      // Could be an equipment dock — let onDragEnd handle it
+      const found = findCardOnBattlefield(gameState, cardId)
+      if (found) {
+        const typeLine = found.card.card.typeLine
+        if (/\bequipment\b/i.test(typeLine) || /\baura\b/i.test(typeLine) || /\bfortification\b/i.test(typeLine)) {
+          return
+        }
+      }
+    }
+
+    // Transfer the card from activeRow to overRow in state
+    const overCardId = overData?.cardId as string | undefined
+    setGameState((prev: GameState) => {
+      const sourceCards = getRowCards(prev, activeRowId)
+      const cardIndex = sourceCards.findIndex(rc => rc.instanceId === cardId)
+      if (cardIndex === -1) return prev // Already transferred
+
+      const card = sourceCards[cardIndex]
+      const newSource = sourceCards.filter(rc => rc.instanceId !== cardId)
+      const targetCards = getRowCards(prev, overRowId!)
+      const insertAt = overCardId ? targetCards.findIndex(rc => rc.instanceId === overCardId) : -1
+      const newTarget = [...targetCards]
+      newTarget.splice(insertAt === -1 ? newTarget.length : insertAt, 0, { ...card, rowAssignment: overRowId! })
+
+      let s = setRowCards(prev, activeRowId, newSource)
+      s = setRowCards(s, overRowId!, newTarget)
+      return s
+    })
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragId(null)
     const { active, over } = event
@@ -1278,6 +1337,7 @@ function AppContent() {
     <>
       <AppShell
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         overlay={
           <>

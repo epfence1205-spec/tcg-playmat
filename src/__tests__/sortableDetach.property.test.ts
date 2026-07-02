@@ -116,6 +116,8 @@ function emptyGameState(): GameState {
     mulliganState: null,
     deckLoaded: true,
     lifeTotal: 40,
+    turnCount: 0,
+    gameLog: [],
   };
 }
 

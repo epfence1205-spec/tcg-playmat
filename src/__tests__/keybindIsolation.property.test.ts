@@ -27,6 +27,8 @@ function makeGameState(): GameState {
     mulliganState: null,
     deckLoaded: false,
     lifeTotal: 40,
+    turnCount: 0,
+    gameLog: [],
   };
 }
 
