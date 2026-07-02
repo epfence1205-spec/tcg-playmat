@@ -46,8 +46,8 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
     cursor: isTargetingActive ? (isValidTarget ? 'pointer' : 'not-allowed') : 'grab',
     overflow: isCollapsing ? 'hidden' : undefined,
     ...style,
-    // Tapped cards elevate above row-level z-index; otherwise use passed-in value
-    zIndex: isTapped ? Math.max(10, (style?.zIndex as number) || 0) + 100 : (style?.zIndex ?? undefined),
+    // Tapped cards get a small boost above neighbors but MUST stay below UI overlays (z-[99]+)
+    zIndex: isTapped ? ((style?.zIndex as number) || 0) + 50 : (style?.zIndex ?? undefined),
   };
 
   // Build className with targeting highlights
