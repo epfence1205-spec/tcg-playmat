@@ -305,6 +305,12 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
           const dynamicOverlap = idx > 0 && negativeMargin > 0 ? negativeMargin : 0;
           const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
 
+          // Z-index: each card gets idx+1 so later cards in a fanned group
+          // (token copies) always render above earlier ones (equipped creature).
+          // The equipped creature's internal stacking context (zIndex: N for
+          // equipment layers) would otherwise elevate it above plain tokens.
+          const cardZIndex = idx + 1;
+
           return (
             <SortableCardWrapper
               key={el.instanceId}
@@ -315,7 +321,10 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
               isTapped={el.isTapped}
               attachmentCount={el.attachments.length}
               isCollapsing={collapsingIds?.has(el.instanceId)}
-              style={idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+              style={{
+                ...(idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
+                zIndex: cardZIndex,
+              }}
               mutateTargeting={mutateTargeting}
               onMutateTargetSelect={onMutateTargetSelect}
             >
@@ -471,6 +480,7 @@ function SplitRowTrack({
             const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
             const dynamicOverlap = idx > 0 && leftMargin > 0 ? leftMargin : 0;
             const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+            const cardZIndex = idx + 1;
             return (
               <SortableCardWrapper
                 key={el.instanceId}
@@ -481,7 +491,10 @@ function SplitRowTrack({
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
-                style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+                style={{
+                  ...(totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
+                  zIndex: cardZIndex,
+                }}
                 mutateTargeting={mutateTargeting}
                 onMutateTargetSelect={onMutateTargetSelect}
               >
@@ -520,6 +533,7 @@ function SplitRowTrack({
             const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
             const dynamicOverlap = idx > 0 && rightMargin > 0 ? rightMargin : 0;
             const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+            const cardZIndex = idx + 1;
             return (
               <SortableCardWrapper
                 key={el.instanceId}
@@ -530,7 +544,10 @@ function SplitRowTrack({
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
-                style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
+                style={{
+                  ...(totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : {}),
+                  zIndex: cardZIndex,
+                }}
                 mutateTargeting={mutateTargeting}
                 onMutateTargetSelect={onMutateTargetSelect}
               >
