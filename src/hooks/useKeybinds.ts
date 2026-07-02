@@ -28,6 +28,7 @@ export type GameAction =
   | { type: 'REMOVE_COUNTER'; cardId: string }
   | { type: 'DELETE_CARD'; cardId: string }
   | { type: 'EQUIP_MODE'; cardId: string }
+  | { type: 'CLEAR_SELECTION' }
   | { type: 'TOGGLE_REVEAL'; cardId: string }
   | { type: 'QUICK_PLAY'; handIndex: number }
   | { type: 'PEEK'; count: number };
@@ -170,27 +171,30 @@ export function useKeybinds({
         // ─── Card Movement Keys ─────────────────────────────────────────
         case 'b':
           e.preventDefault();
-          console.log('B pressed, hoveredCardId:', hoveredCardId, 'hoveredZone:', hoveredZone);
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'MOVE_CARD', cardId: hoveredCardId, destination: 'battlefield' });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'MOVE_CARD', cardId: targetId, destination: 'battlefield' });
           }
           return;
         case 'h':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'MOVE_CARD', cardId: hoveredCardId, destination: 'hand' });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'MOVE_CARD', cardId: targetId, destination: 'hand' });
           }
           return;
         case 'g':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'MOVE_CARD', cardId: hoveredCardId, destination: 'graveyard' });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'MOVE_CARD', cardId: targetId, destination: 'graveyard' });
           }
           return;
         case 'e':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'MOVE_CARD', cardId: hoveredCardId, destination: 'exile' });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'MOVE_CARD', cardId: targetId, destination: 'exile' });
           }
           return;
         case 'z':
@@ -217,8 +221,9 @@ export function useKeybinds({
         // ─── Battlefield Card Actions ───────────────────────────────────
         case 't':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'TAP_CARD', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'TAP_CARD', cardId: targetId });
           }
           return;
         case 'f':
@@ -278,14 +283,16 @@ export function useKeybinds({
 
     /**
      * Dispatches a card action. If the target card is part of the current
-     * multi-selection, the action is applied to all selected cards.
+     * multi-selection, the action is applied to all selected cards, then selection is cleared.
+     * If no hoveredCardId but selection exists, pass any selectedCardId to trigger multi-dispatch.
      */
     function dispatchCardAction(action: Extract<GameAction, { cardId: string }>): void {
       if (selectedCardIds.includes(action.cardId) && selectedCardIds.length > 1) {
-        // Apply action to all selected cards
+        // Apply action to all selected cards, then clear selection
         for (const cardId of selectedCardIds) {
           onAction({ ...action, cardId } as typeof action);
         }
+        onAction({ type: 'CLEAR_SELECTION' });
       } else {
         onAction(action);
       }

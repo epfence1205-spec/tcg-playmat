@@ -14,13 +14,23 @@ interface SortableCardWrapperProps {
   children: React.ReactNode;
   style?: React.CSSProperties;   // compression margins passed through
   className?: string;
+  /** Whether this card is currently in the multi-select set */
+  isSelected?: boolean;
   /** Mutate targeting state — when active, highlights valid targets and dims others */
   mutateTargeting?: MutateTargetingState;
   /** Called when a valid mutate target is clicked during targeting mode */
   onMutateTargetSelect?: (cardId: string) => void;
+  /** Called when Ctrl+Click toggles selection for this card */
+  onSelectionToggle?: (cardId: string) => void;
+  /** Whether any card in the selection set is currently selected */
+  hasSelection?: boolean;
+  /** Called to clear the entire selection set (e.g., on normal click while selection exists) */
+  onClearSelection?: () => void;
+  /** Called when a selected card is clicked (no modifier) — taps all selected cards */
+  onTapSelected?: () => void;
 }
 
-export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, attachmentCount, isCollapsing = false, children, style, className, mutateTargeting, onMutateTargetSelect }: SortableCardWrapperProps) {
+export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, attachmentCount, isCollapsing = false, children, style, className, isSelected, mutateTargeting, onMutateTargetSelect, onSelectionToggle, hasSelection, onClearSelection, onTapSelected }: SortableCardWrapperProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     data: { cardId: id, cardName, sourceZone: 'battlefield', cardType, rowId },
@@ -50,13 +60,16 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
     zIndex: isTapped ? ((style?.zIndex as number) || 0) + 50 : (style?.zIndex ?? undefined),
   };
 
-  // Build className with targeting highlights
+  // Build className with targeting highlights and selection ring
   const targetingClasses = isValidTarget
     ? 'ring-2 ring-indigo-500 rounded-sm'
-    : '';
+    : isSelected
+      ? 'ring-2 ring-cyan-400 rounded-sm'
+      : '';
   const combinedClassName = [className, targetingClasses].filter(Boolean).join(' ');
 
   // During targeting mode: intercept clicks on valid targets, ignore non-valid
+  // When not targeting: intercept Ctrl+Click for selection toggle
   const handleClick = isTargetingActive
     ? (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -66,7 +79,23 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
         }
         // Non-valid cards: click is swallowed (ignored)
       }
-    : undefined;
+    : (e: React.MouseEvent) => {
+        if ((e.ctrlKey || e.metaKey) && onSelectionToggle) {
+          e.stopPropagation();
+          e.preventDefault();
+          onSelectionToggle(id);
+        } else if (isSelected && onTapSelected) {
+          // Clicking a selected card (no modifier) → tap ALL selected, then clear
+          e.stopPropagation();
+          e.preventDefault();
+          onTapSelected();
+        } else if (hasSelection && onClearSelection) {
+          // Normal click on a NON-selected card while selection exists: clear selection, then let tap propagate
+          onClearSelection();
+          // Do NOT stop propagation — let RotationDiv handle the tap
+        }
+        // If no selection and no Ctrl: let event propagate normally for tap handling
+      };
 
   // During targeting mode, suppress drag listeners on all cards
   const effectiveListeners = isTargetingActive ? {} : listeners;
@@ -76,6 +105,7 @@ export function SortableCardWrapper({ id, cardName, cardType, rowId, isTapped, a
       ref={setNodeRef}
       style={wrapperStyle}
       className={combinedClassName}
+      data-card-id={id}
       {...attributes}
       {...effectiveListeners}
       onClick={handleClick}

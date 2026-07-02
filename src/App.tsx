@@ -4,6 +4,7 @@ import type { DragStartEvent, DragEndEvent, DragOverEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import { AppShell } from './components/AppShell'
 import { Battlefield } from './components/Battlefield'
+import type { BatchAction } from './components/SelectionToolbar'
 import { PublicStack, calculateDelirium } from './components/PublicStack'
 import { HandTray } from './components/HandTray'
 import { DeckImportModal } from './components/DeckImportModal'
@@ -36,6 +37,7 @@ import type { GameAction } from './hooks/useKeybinds'
 import { moveCard, tapCard, softReset, isGameInProgress, drawCard as drawCardAction, shuffleLibrary, untapAll, flipCard, transformDFC, findCardOnBattlefield, findCardZone, removeCardFromZone, addToBattlefield, createTokens, getAllBattlefieldCards, updateBattlefieldCard } from './gameActions'
 import { addCounter, removeCounter } from './counterActions'
 import { attachEquipment, detachEquipment } from './equipmentActions'
+import { batchTap, batchUntap, batchMoveToZone } from './batchActions'
 import { CARD_BACK_URL } from './cardBack'
 import { logAction } from './gameLog'
 import { isAttachedEquipment, findParentCreature, getRowCards, setRowCards, reorderWithinRow as reorderWithinRowAction } from './sortableHelpers'
@@ -54,6 +56,59 @@ function AppContent() {
 
   // Cards animating collapse before zone change
   const [collapsingIds, setCollapsingIds] = useState<Set<string>>(new Set())
+
+  // Multi-select: ephemeral UI state (not persisted, not in GameState, not in undo history)
+  const [selectedCardIds, setSelectedCardIds] = useState<Set<string>>(new Set())
+
+  const onSelectionToggle = useCallback((id: string) => {
+    setSelectedCardIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const onClearSelection = useCallback(() => {
+    setSelectedCardIds(new Set())
+  }, [])
+
+  const onSetSelection = useCallback((ids: Set<string>) => {
+    setSelectedCardIds(ids)
+  }, [])
+
+  // Batch action handler for multi-select toolbar
+  const onBatchAction = useCallback((action: BatchAction) => {
+    const ids = Array.from(selectedCardIds)
+    if (ids.length === 0) return
+
+    // Push ONE undo checkpoint, then apply the batch action
+    if (action === 'tap') {
+      setGameState((prev: GameState) => batchTap(prev, ids))
+    } else if (action === 'untap') {
+      setGameState((prev: GameState) => batchUntap(prev, ids))
+    } else {
+      setGameState((prev: GameState) => batchMoveToZone(prev, ids, action.moveTo))
+    }
+
+    // Clear selection after batch
+    setSelectedCardIds(new Set())
+  }, [selectedCardIds, setGameState])
+
+  // Toggle tap on all selected cards (triggered by clicking a selected card without modifiers)
+  const onTapSelected = useCallback(() => {
+    const ids = Array.from(selectedCardIds)
+    if (ids.length === 0) return
+    setGameState((prev: GameState) => {
+      let state = prev
+      for (const id of ids) {
+        try { state = tapCard(state, id) }
+        catch { /* card not found, skip */ }
+      }
+      return state
+    })
+    setSelectedCardIds(new Set())
+  }, [selectedCardIds, setGameState])
 
   // Equip mode: when set, next click on a creature attaches this equipment
   const [equipModeCardId, setEquipModeCardId] = useState<string | null>(null)
@@ -99,6 +154,71 @@ function AppContent() {
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [mutateTargeting.isActive])
+
+  // Clear multi-selection on Escape (when no modal modes are active)
+  useEffect(() => {
+    if (selectedCardIds.size === 0) return
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setSelectedCardIds(new Set())
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [selectedCardIds.size])
+
+  // Ctrl+A: Select all / deselect all battlefield cards
+  useEffect(() => {
+    function handleCtrlA(e: KeyboardEvent) {
+      // Suppress if focus is in a text input
+      const active = document.activeElement
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable)) return
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault() // Suppress browser select-all
+
+        // Suppress during mutate targeting
+        if (mutateTargeting.isActive) return
+
+        // Collect all battlefield instanceIds
+        const allIds: string[] = [
+          ...gameState.creatureArea.rows.flatMap(r => r.elements.map(el => el.instanceId)),
+          ...gameState.row3.left.map(el => el.instanceId),
+          ...gameState.row3.right.map(el => el.instanceId),
+          ...gameState.row4.left.map(el => el.instanceId),
+          ...gameState.row4.right.map(el => el.instanceId),
+        ]
+
+        // Toggle: if all are already selected → clear, otherwise → select all
+        const allSelected = allIds.length > 0 && allIds.every(id => selectedCardIds.has(id))
+        if (allSelected) {
+          setSelectedCardIds(new Set())
+        } else {
+          setSelectedCardIds(new Set(allIds))
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleCtrlA)
+    return () => document.removeEventListener('keydown', handleCtrlA)
+  }, [gameState, selectedCardIds, mutateTargeting.isActive])
+
+  // Clean up stale selection IDs when cards leave the battlefield
+  useEffect(() => {
+    if (selectedCardIds.size === 0) return
+    const allBattlefieldIds = new Set([
+      ...gameState.creatureArea.rows.flatMap(r => r.elements.map(el => el.instanceId)),
+      ...gameState.row3.left.map(el => el.instanceId),
+      ...gameState.row3.right.map(el => el.instanceId),
+      ...gameState.row4.left.map(el => el.instanceId),
+      ...gameState.row4.right.map(el => el.instanceId),
+    ])
+
+    const filtered = new Set([...selectedCardIds].filter(id => allBattlefieldIds.has(id)))
+    if (filtered.size !== selectedCardIds.size) {
+      setSelectedCardIds(filtered)
+    }
+  }, [gameState, selectedCardIds])
 
   // Hover tracking for HD Zoom Portal
   const { hoveredCardData } = useHoveredCard(gameState)
@@ -293,6 +413,9 @@ function AppContent() {
       case 'TOGGLE_GAME_LOG':
         setShowGameLog(prev => !prev)
         break
+      case 'CLEAR_SELECTION':
+        setSelectedCardIds(new Set())
+        break
       default:
         break
     }
@@ -302,7 +425,7 @@ function AppContent() {
     gameState,
     hoveredCardId: hoveredCardData.card?.id ?? null,
     hoveredZone: hoveredCardData.zone ?? 'battlefield',
-    selectedCardIds: [],
+    selectedCardIds: Array.from(selectedCardIds),
     onAction: handleGameAction,
   })
 
@@ -760,6 +883,7 @@ function AppContent() {
 
   // --- Drag and Drop ---
   const handleDragStart = (event: DragStartEvent) => {
+    setSelectedCardIds(new Set())
     setActiveDragId(event.active.id as string)
   }
 
@@ -1248,6 +1372,7 @@ function AppContent() {
     clearTokenCache()
     setDeckTokens([])
     localStorage.removeItem('tcg-playmat-deck-tokens')
+    setSelectedCardIds(new Set())
     setGameState((prev: GameState) => {
       try {
         return initializeMulligan(softReset(prev))
@@ -1395,6 +1520,12 @@ function AppContent() {
           }}
           mutateTargeting={mutateTargeting}
           onMutateTargetSelect={handleMutateTargetClick}
+          selectedCardIds={selectedCardIds}
+          onSelectionToggle={onSelectionToggle}
+          onClearSelection={onClearSelection}
+          onSetSelection={onSetSelection}
+          onBatchAction={onBatchAction}
+          onTapSelected={onTapSelected}
         >
           {/* Equip mode indicator */}
           {equipModeCardId && (

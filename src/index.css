@@ -17,6 +17,12 @@
 
 
 
+/* Suppress browser text selection — interferes with lasso multi-select and shows Edge highlight menu */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* Suppress browser focus outlines — app uses hover-based targeting, not tab navigation */
 *:focus {
   outline: none;

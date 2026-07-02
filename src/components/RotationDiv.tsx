@@ -14,6 +14,8 @@ export interface RotationDivProps {
   style?: React.CSSProperties;
   onTapCard: (cardId: string) => void;
   onEquipmentAction?: (action: EquipmentAction) => void;
+  /** When true, skip onTapCard — SortableCardWrapper handles batch tap */
+  isSelected?: boolean;
 }
 
 export function RotationDiv({
@@ -22,6 +24,7 @@ export function RotationDiv({
   style,
   onTapCard,
   onEquipmentAction,
+  isSelected,
 }: RotationDivProps) {
   const N = creature.attachments.length;
   const widthVh = computeOuterDivWidthVh(creature.isTapped, N);
@@ -114,6 +117,10 @@ export function RotationDiv({
       setIsMutateFannedOut((prev) => !prev);
       return;
     }
+    // Ctrl+Click is handled by SortableCardWrapper for selection toggle — don't tap
+    if (e.ctrlKey || e.metaKey) return;
+    // If card is selected, SortableCardWrapper handles batch tap — don't tap individually
+    if (isSelected) return;
     onTapCard(creature.instanceId);
   };
 

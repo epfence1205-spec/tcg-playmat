@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableCardWrapper } from './SortableCardWrapper';
@@ -13,6 +13,31 @@ import type {
 import { RotationDiv } from './RotationDiv';
 import { computeCompression } from '../creatureLayout';
 import type { EquipmentAction } from './EquipmentDock';
+import { SelectionOverlay } from './SelectionOverlay';
+import { SelectionToolbar } from './SelectionToolbar';
+import type { BatchAction } from './SelectionToolbar';
+import { LassoOverlay } from './LassoOverlay';
+
+// ─── Lasso Intersection Utility ──────────────────────────────────────────────
+
+function computeLassoIntersection(lassoRect: DOMRect, containerEl: HTMLElement): string[] {
+  const cards = containerEl.querySelectorAll('[data-card-id]')
+  const result: string[] = []
+  cards.forEach(card => {
+    const cardRect = card.getBoundingClientRect()
+    // Two rects intersect if NOT (one is fully left/right/above/below the other)
+    const intersects = !(
+      cardRect.right < lassoRect.left ||
+      cardRect.left > lassoRect.right ||
+      cardRect.bottom < lassoRect.top ||
+      cardRect.top > lassoRect.bottom
+    )
+    if (intersects) {
+      result.push((card as HTMLElement).dataset.cardId!)
+    }
+  })
+  return result
+}
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -51,6 +76,18 @@ export interface BattlefieldProps {
   mutateTargeting?: MutateTargetingState;
   /** Called when a valid mutate target card is clicked during targeting mode */
   onMutateTargetSelect?: (cardId: string) => void;
+  /** Set of currently multi-selected card instanceIds */
+  selectedCardIds?: Set<string>;
+  /** Called when Ctrl+Click toggles selection for a card */
+  onSelectionToggle?: (cardId: string) => void;
+  /** Called to clear the entire multi-select selection */
+  onClearSelection?: () => void;
+  /** Called when lasso selection sets the selection to a specific set of ids */
+  onSetSelection?: (ids: Set<string>) => void;
+  /** Called when a batch action is triggered from the SelectionToolbar */
+  onBatchAction?: (action: BatchAction) => void;
+  /** Called when a selected card is clicked (no modifier) — taps all selected */
+  onTapSelected?: () => void;
   /** Optional children rendered as overlays (e.g., toolbar buttons) */
   children?: React.ReactNode;
 }
@@ -87,6 +124,12 @@ export function Battlefield({
   collapsingIds,
   mutateTargeting,
   onMutateTargetSelect,
+  selectedCardIds,
+  onSelectionToggle,
+  onClearSelection,
+  onSetSelection,
+  onBatchAction,
+  onTapSelected,
   children,
 }: BattlefieldProps) {
   // Suppress unused variable warnings for handlers used by DnD context
@@ -124,13 +167,99 @@ export function Battlefield({
     )
   );
 
+  // Collect all battlefield RowCards for selection overlay
+  const selectedCardsArray = useMemo(() => {
+    if (!selectedCardIds || selectedCardIds.size === 0) return []
+    const allCards: RowCard[] = [
+      ...creatureArea.rows.flatMap(r => r.elements),
+      ...row3.left,
+      ...row3.right,
+      ...row4.left,
+      ...row4.right,
+    ]
+    return allCards.filter(rc => selectedCardIds.has(rc.instanceId))
+  }, [selectedCardIds, creatureArea, row3, row4]);
+
+  // ─── Lasso selection state and handlers ──────────────────────────────────────
+  const battlefieldRef = useRef<HTMLDivElement>(null)
+  const [isLassoActive, setIsLassoActive] = useState(false)
+  const [lassoOrigin, setLassoOrigin] = useState<{ x: number; y: number } | null>(null)
+  const [lassoEnd, setLassoEnd] = useState<{ x: number; y: number } | null>(null)
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Suppress during mutate targeting
+    if (mutateTargeting?.isActive) return
+
+    // Only start lasso on empty space
+    if ((e.target as HTMLElement).closest('[data-card-id]')) return
+
+    // Only primary button
+    if (e.button !== 0) return
+
+    setIsLassoActive(true)
+    setLassoOrigin({ x: e.clientX, y: e.clientY })
+    setLassoEnd({ x: e.clientX, y: e.clientY })
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  }, [mutateTargeting?.isActive])
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isLassoActive) return
+    setLassoEnd({ x: e.clientX, y: e.clientY })
+  }, [isLassoActive])
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isLassoActive || !lassoOrigin) return
+
+    const endPoint = { x: e.clientX, y: e.clientY }
+
+    // Zero-distance check (click on empty = clear selection)
+    const dx = Math.abs(endPoint.x - lassoOrigin.x)
+    const dy = Math.abs(endPoint.y - lassoOrigin.y)
+    if (dx < 3 && dy < 3) {
+      onClearSelection?.()
+      setIsLassoActive(false)
+      setLassoOrigin(null)
+      setLassoEnd(null)
+      return
+    }
+
+    // Compute lasso rectangle
+    const lassoRect = new DOMRect(
+      Math.min(lassoOrigin.x, endPoint.x),
+      Math.min(lassoOrigin.y, endPoint.y),
+      Math.abs(endPoint.x - lassoOrigin.x),
+      Math.abs(endPoint.y - lassoOrigin.y)
+    )
+
+    // Intersect with cards
+    if (battlefieldRef.current) {
+      const intersectedIds = computeLassoIntersection(lassoRect, battlefieldRef.current)
+
+      if (e.ctrlKey || e.metaKey) {
+        // Additive: union with existing selection
+        onSetSelection?.(new Set<string>([...Array.from(selectedCardIds ?? new Set<string>()), ...intersectedIds]))
+      } else {
+        // Replace
+        onSetSelection?.(new Set(intersectedIds))
+      }
+    }
+
+    setIsLassoActive(false)
+    setLassoOrigin(null)
+    setLassoEnd(null)
+  }, [isLassoActive, lassoOrigin, selectedCardIds, onClearSelection, onSetSelection])
+
   return (
     <div
+      ref={battlefieldRef}
       className="relative w-full bg-green-900/80 overflow-hidden flex flex-col min-h-0"
       style={{ height: '80vh' }}
       data-obs-zone="above"
       role="region"
       aria-label="Battlefield"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
     >
       {/* During MULLIGAN phase, render blank battlefield */}
       {gamePhase === 'MULLIGAN' ? (
@@ -155,6 +284,10 @@ export function Battlefield({
                   collapsingIds={collapsingIds}
                   mutateTargeting={mutateTargeting}
                   onMutateTargetSelect={onMutateTargetSelect}
+                  selectedCardIds={selectedCardIds}
+                  onSelectionToggle={onSelectionToggle}
+                  onClearSelection={onClearSelection}
+                  onTapSelected={onTapSelected}
                 />
               ))}
             </div>
@@ -178,6 +311,10 @@ export function Battlefield({
             collapsingIds={collapsingIds}
             mutateTargeting={mutateTargeting}
             onMutateTargetSelect={onMutateTargetSelect}
+            selectedCardIds={selectedCardIds}
+            onSelectionToggle={onSelectionToggle}
+            onClearSelection={onClearSelection}
+            onTapSelected={onTapSelected}
           />
 
           {/* Row 4 — 1/5 (20%) of battlefield height */}
@@ -193,12 +330,34 @@ export function Battlefield({
             collapsingIds={collapsingIds}
             mutateTargeting={mutateTargeting}
             onMutateTargetSelect={onMutateTargetSelect}
+            selectedCardIds={selectedCardIds}
+            onSelectionToggle={onSelectionToggle}
+            onClearSelection={onClearSelection}
+            onTapSelected={onTapSelected}
           />
         </>
       )}
 
+      {/* Selection Overlay badge — top-right, z-index 91 */}
+      {selectedCardsArray.length > 0 && (
+        <SelectionOverlay selectedCards={selectedCardsArray} />
+      )}
+
+      {/* Selection Toolbar — top-right below overlay, z-index 90 */}
+      {onBatchAction && (
+        <SelectionToolbar
+          isVisible={selectedCardsArray.length > 0}
+          onBatchAction={onBatchAction}
+        />
+      )}
+
       {/* Children overlay (toolbar, etc.) */}
       {children}
+
+      {/* Lasso selection overlay */}
+      {isLassoActive && lassoOrigin && lassoEnd && (
+        <LassoOverlay origin={lassoOrigin} end={lassoEnd} />
+      )}
 
       {/* Player Info HUD — bottom-left of Zone A, above crop line */}
       <div
@@ -237,6 +396,10 @@ interface RowTrackProps {
   collapsingIds?: Set<string>;
   mutateTargeting?: MutateTargetingState;
   onMutateTargetSelect?: (cardId: string) => void;
+  selectedCardIds?: Set<string>;
+  onSelectionToggle?: (cardId: string) => void;
+  onClearSelection?: () => void;
+  onTapSelected?: () => void;
 }
 
 /**
@@ -244,7 +407,7 @@ interface RowTrackProps {
  * Cards compress (overlap) as the row fills up so everything always fits visible.
  * Supports drag-to-reorder within the row via @dnd-kit/sortable.
  */
-function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds, mutateTargeting, onMutateTargetSelect }: RowTrackProps) {
+function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds, mutateTargeting, onMutateTargetSelect, selectedCardIds, onSelectionToggle, onClearSelection, onTapSelected }: RowTrackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [negativeMargin, setNegativeMargin] = useState(0);
   const { setNodeRef, isOver } = useDroppable({
@@ -321,18 +484,24 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
               isTapped={el.isTapped}
               attachmentCount={el.attachments.length}
               isCollapsing={collapsingIds?.has(el.instanceId)}
+              isSelected={selectedCardIds?.has(el.instanceId) ?? false}
               style={{
                 ...(idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
                 zIndex: cardZIndex,
               }}
               mutateTargeting={mutateTargeting}
               onMutateTargetSelect={onMutateTargetSelect}
+              onSelectionToggle={onSelectionToggle}
+              hasSelection={selectedCardIds ? selectedCardIds.size > 0 : false}
+              onClearSelection={onClearSelection}
+              onTapSelected={onTapSelected}
             >
               <RotationDiv
                 creature={el}
                 onTapCard={onTapCard}
                 onEquipmentAction={onEquipmentAction}
                 isCompressed={negativeMargin > 0}
+                isSelected={selectedCardIds?.has(el.instanceId) ?? false}
               />
             </SortableCardWrapper>
           );
@@ -356,6 +525,10 @@ interface SplitRowTrackProps {
   collapsingIds?: Set<string>;
   mutateTargeting?: MutateTargetingState;
   onMutateTargetSelect?: (cardId: string) => void;
+  selectedCardIds?: Set<string>;
+  onSelectionToggle?: (cardId: string) => void;
+  onClearSelection?: () => void;
+  onTapSelected?: () => void;
 }
 
 /**
@@ -374,6 +547,10 @@ function SplitRowTrack({
   collapsingIds,
   mutateTargeting,
   onMutateTargetSelect,
+  selectedCardIds,
+  onSelectionToggle,
+  onClearSelection,
+  onTapSelected,
 }: SplitRowTrackProps) {
   const leftContainerRef = useRef<HTMLDivElement>(null);
   const rightContainerRef = useRef<HTMLDivElement>(null);
@@ -491,18 +668,24 @@ function SplitRowTrack({
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
+                isSelected={selectedCardIds?.has(el.instanceId) ?? false}
                 style={{
                   ...(totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
                   zIndex: cardZIndex,
                 }}
                 mutateTargeting={mutateTargeting}
                 onMutateTargetSelect={onMutateTargetSelect}
+                onSelectionToggle={onSelectionToggle}
+                hasSelection={selectedCardIds ? selectedCardIds.size > 0 : false}
+                onClearSelection={onClearSelection}
+                onTapSelected={onTapSelected}
               >
                 <RotationDiv
                   creature={el}
                   onTapCard={onTapCard}
                   onEquipmentAction={onEquipmentAction}
                   isCompressed={leftMargin > 0}
+                  isSelected={selectedCardIds?.has(el.instanceId) ?? false}
                 />
               </SortableCardWrapper>
             );
@@ -544,18 +727,24 @@ function SplitRowTrack({
                 isTapped={el.isTapped}
                 attachmentCount={el.attachments.length}
                 isCollapsing={collapsingIds?.has(el.instanceId)}
+                isSelected={selectedCardIds?.has(el.instanceId) ?? false}
                 style={{
                   ...(totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : {}),
                   zIndex: cardZIndex,
                 }}
                 mutateTargeting={mutateTargeting}
                 onMutateTargetSelect={onMutateTargetSelect}
+                onSelectionToggle={onSelectionToggle}
+                hasSelection={selectedCardIds ? selectedCardIds.size > 0 : false}
+                onClearSelection={onClearSelection}
+                onTapSelected={onTapSelected}
               >
                 <RotationDiv
                   creature={el}
                   onTapCard={onTapCard}
                   onEquipmentAction={onEquipmentAction}
                   isCompressed={rightMargin > 0}
+                  isSelected={selectedCardIds?.has(el.instanceId) ?? false}
                 />
               </SortableCardWrapper>
             );
