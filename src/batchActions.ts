@@ -1,4 +1,4 @@
-import type { GameState, Zone, ExileCard, RowCard } from './types';
+import type { GameState, Zone, ExileCard } from './types';
 import {
   findCardOnBattlefield,
   updateBattlefieldCard,
@@ -159,5 +159,6 @@ function addCardToZone(state: GameState, card: import('./types').CardData, zone:
     return { ...state, exile: [...state.exile, exileCard] };
   }
   // hand, graveyard, commandZone — append
-  return { ...state, [zone]: [...(state[zone] as import('./types').CardData[]), card] };
+  const zoneKey = zone as 'hand' | 'graveyard' | 'commandZone';
+  return { ...state, [zoneKey]: [...state[zoneKey], card] };
 }
