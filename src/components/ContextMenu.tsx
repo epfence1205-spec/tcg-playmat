@@ -29,7 +29,11 @@ export type ContextMenuAction =
   | { type: 'SPLIT_MUTATE_STACK' }
   | { type: 'BROWSE_ZONE' }
   | { type: 'DRAW_CARD' }
-  | { type: 'SHUFFLE_LIBRARY' };
+  | { type: 'SHUFFLE_LIBRARY' }
+  | { type: 'RESET_POWER' }
+  | { type: 'RESET_TOUGHNESS' }
+  | { type: 'ADD_PT_COMBINED'; amount: number }
+  | { type: 'REMOVE_ALL_COUNTERS'; counterType: CounterType };
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -44,6 +48,7 @@ export interface ContextMenuProps {
   isDFC: boolean;
   hasMutateKeyword?: boolean;
   hasMutateStack?: boolean;
+  counters?: { type: CounterType; value: number }[];
   onAction: (action: ContextMenuAction) => void;
   onClose: () => void;
 }
@@ -56,6 +61,8 @@ const ALL_COUNTER_TYPES: CounterType[] = [
   'menace', 'trample', 'first_strike', 'double_strike', 'reach',
   'vigilance', 'token', 'lore', 'shield', 'haste', 'custom',
 ];
+
+const PT_PRESETS = [-3, -2, -1, 1, 2, 3, 4, 5, 6];
 
 // ─── Submenu Types ───────────────────────────────────────────────────────────
 
@@ -82,6 +89,7 @@ export function ContextMenu({
   isDFC,
   hasMutateKeyword = false,
   hasMutateStack = false,
+  counters = [],
   onAction,
   onClose,
 }: ContextMenuProps) {
@@ -281,9 +289,15 @@ export function ContextMenu({
     if (activeSubmenu !== 'power') return null;
 
     return (
-      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
-        {renderMenuItem('+1 Power', null, () => handleAction({ type: 'ADD_POWER', amount: 1 }))}
-        {renderMenuItem('-1 Power', null, () => handleAction({ type: 'ADD_POWER', amount: -1 }))}
+      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-44 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
+        {renderMenuItem('Clear', null, () => handleAction({ type: 'RESET_POWER' }))}
+        {PT_PRESETS.map((amount) => (
+          renderMenuItem(
+            `${amount > 0 ? '+' : ''}${amount} Power`,
+            null,
+            () => handleAction({ type: 'ADD_POWER', amount })
+          )
+        ))}
       </div>
     );
   };
@@ -294,9 +308,15 @@ export function ContextMenu({
     if (activeSubmenu !== 'toughness') return null;
 
     return (
-      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
-        {renderMenuItem('+1 Toughness', null, () => handleAction({ type: 'ADD_TOUGHNESS', amount: 1 }))}
-        {renderMenuItem('-1 Toughness', null, () => handleAction({ type: 'ADD_TOUGHNESS', amount: -1 }))}
+      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-44 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
+        {renderMenuItem('Clear', null, () => handleAction({ type: 'RESET_TOUGHNESS' }))}
+        {PT_PRESETS.map((amount) => (
+          renderMenuItem(
+            `${amount > 0 ? '+' : ''}${amount} Toughness`,
+            null,
+            () => handleAction({ type: 'ADD_TOUGHNESS', amount })
+          )
+        ))}
       </div>
     );
   };
@@ -307,9 +327,15 @@ export function ContextMenu({
     if (activeSubmenu !== 'pt-combined') return null;
 
     return (
-      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
-        {renderMenuItem('+1/+1', '+', () => handleAction({ type: 'ADD_COUNTER', counterType: '+1/+1' }))}
-        {renderMenuItem('-1/-1', '-', () => handleAction({ type: 'ADD_COUNTER', counterType: '-1/-1' }))}
+      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-44 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60]`}>
+        {renderMenuItem('Clear custom +X/+X', null, () => handleAction({ type: 'RESET_PT' }))}
+        {PT_PRESETS.map((amount) => (
+          renderMenuItem(
+            `${amount > 0 ? '+' : ''}${amount}/${amount > 0 ? '+' : ''}${amount}`,
+            null,
+            () => handleAction({ type: 'ADD_PT_COMBINED', amount })
+          )
+        ))}
       </div>
     );
   };
@@ -356,6 +382,35 @@ export function ContextMenu({
         {renderSubmenuTrigger('Add counters', 'counters')}
         {renderCountersSubmenu()}
       </div>
+      {counters.length > 0 && counters.map((counter) => (
+        <div key={counter.type} className="flex items-center justify-between px-3 py-1 text-sm text-gray-200">
+          <span className="truncate mr-2">{counter.type}</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-xs"
+              onClick={() => handleAction({ type: 'REMOVE_COUNTER', counterType: counter.type })}
+            >
+              −
+            </button>
+            <span className="w-6 text-center text-xs font-mono">{counter.value}</span>
+            <button
+              type="button"
+              className="w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-xs"
+              onClick={() => handleAction({ type: 'ADD_COUNTER', counterType: counter.type })}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="w-6 h-6 flex items-center justify-center rounded bg-gray-700 hover:bg-red-600 text-xs"
+              onClick={() => handleAction({ type: 'REMOVE_ALL_COUNTERS', counterType: counter.type })}
+            >
+              🗑️
+            </button>
+          </div>
+        </div>
+      ))}
       <div className="relative" onMouseEnter={() => openSubmenu('remove-counters')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Remove counters', 'remove-counters')}
         {activeSubmenu === 'remove-counters' && (
@@ -376,15 +431,15 @@ export function ContextMenu({
         )}
       </div>
       <div className="relative" onMouseEnter={() => openSubmenu('power')} onMouseLeave={closeSubmenuDelayed}>
-        {renderSubmenuTrigger('Power +/-', 'power')}
+        {renderSubmenuTrigger('Add / subtract power', 'power')}
         {renderPowerSubmenu()}
       </div>
       <div className="relative" onMouseEnter={() => openSubmenu('toughness')} onMouseLeave={closeSubmenuDelayed}>
-        {renderSubmenuTrigger('Toughness +/-', 'toughness')}
+        {renderSubmenuTrigger('Add / subtract toughness', 'toughness')}
         {renderToughnessSubmenu()}
       </div>
       <div className="relative" onMouseEnter={() => openSubmenu('pt-combined')} onMouseLeave={closeSubmenuDelayed}>
-        {renderSubmenuTrigger('+X/+X', 'pt-combined')}
+        {renderSubmenuTrigger('Add / subtract +X/+X', 'pt-combined')}
         {renderPTCombinedSubmenu()}
       </div>
       {renderDivider()}

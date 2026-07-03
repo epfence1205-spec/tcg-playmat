@@ -693,6 +693,34 @@ function AppContent() {
           ...rc, toughnessModifier: (rc.toughnessModifier ?? 0) + action.amount
         })))
         break
+      case 'RESET_PT':
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc, powerModifier: 0, toughnessModifier: 0
+        })))
+        break
+      case 'RESET_POWER':
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc, powerModifier: 0
+        })))
+        break
+      case 'RESET_TOUGHNESS':
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc, toughnessModifier: 0
+        })))
+        break
+      case 'ADD_PT_COMBINED':
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc,
+          powerModifier: (rc.powerModifier ?? 0) + action.amount,
+          toughnessModifier: (rc.toughnessModifier ?? 0) + action.amount
+        })))
+        break
+      case 'REMOVE_ALL_COUNTERS':
+        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+          ...rc,
+          counters: rc.counters.filter(c => c.type !== action.counterType)
+        })))
+        break
       case 'TOKEN_COPY': {
         setGameState((prev: GameState) => {
           const found = findCardOnBattlefield(prev, cardId)
@@ -1724,6 +1752,7 @@ function AppContent() {
         isDFC={contextMenu.isDFC}
         hasMutateKeyword={contextMenu.hasMutateKeyword}
         hasMutateStack={contextMenu.hasMutateStack}
+        counters={contextMenu.cardZone === 'battlefield' ? (findCardOnBattlefield(gameState, contextMenu.cardId)?.card.counters ?? []) : []}
         onAction={handleContextMenuAction}
         onClose={handleContextMenuClose}
       />
