@@ -66,7 +66,7 @@ const PT_PRESETS = [-3, -2, -1, 1, 2, 3, 4, 5, 6];
 
 // ─── Submenu Types ───────────────────────────────────────────────────────────
 
-type SubmenuId = 'move-to' | 'card-actions' | 'counters' | 'remove-counters' | 'power' | 'toughness' | 'pt-combined' | 'token-copy' | null;
+type SubmenuId = 'move-to' | 'card-actions' | 'counters' | 'power' | 'toughness' | 'pt-combined' | 'token-copy' | null;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -265,20 +265,12 @@ export function ContextMenu({
     if (activeSubmenu !== 'counters') return null;
 
     return (
-      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-[60]`}>
-        <div className="grid grid-cols-4 gap-1">
-          {ALL_COUNTER_TYPES.map((ct) => (
-            <button
-              key={ct}
-              type="button"
-              className="px-1.5 py-1 text-xs text-gray-200 bg-gray-700 rounded hover:bg-gray-600 transition-colors truncate"
-              title={ct}
-              onClick={() => handleAction({ type: 'ADD_COUNTER', counterType: ct })}
-            >
-              {ct}
-            </button>
-          ))}
-        </div>
+      <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-44 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-1 z-[60] max-h-80 overflow-y-auto`}>
+        {ALL_COUNTER_TYPES.map((ct) => (
+          <div key={ct}>
+            {renderMenuItem(ct, null, () => handleAction({ type: 'ADD_COUNTER', counterType: ct }))}
+          </div>
+        ))}
       </div>
     );
   };
@@ -411,25 +403,6 @@ export function ContextMenu({
           </div>
         </div>
       ))}
-      <div className="relative" onMouseEnter={() => openSubmenu('remove-counters')} onMouseLeave={closeSubmenuDelayed}>
-        {renderSubmenuTrigger('Remove counters', 'remove-counters')}
-        {activeSubmenu === 'remove-counters' && (
-          <div className={`${opensLeft ? "absolute right-full top-0 -mr-1 pr-2" : "absolute left-full top-0 -ml-1 pl-2"} w-56 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-2 z-[60]`}>
-            <div className="grid grid-cols-4 gap-1">
-              {ALL_COUNTER_TYPES.map((ct) => (
-                <button
-                  key={ct}
-                  className="px-1.5 py-1 text-xs text-gray-200 bg-gray-700 rounded hover:bg-red-600 transition-colors truncate"
-                  title={`Remove ${ct}`}
-                  onClick={() => handleAction({ type: 'REMOVE_COUNTER', counterType: ct })}
-                >
-                  {ct}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
       <div className="relative" onMouseEnter={() => openSubmenu('power')} onMouseLeave={closeSubmenuDelayed}>
         {renderSubmenuTrigger('Add / subtract power', 'power')}
         {renderPowerSubmenu()}

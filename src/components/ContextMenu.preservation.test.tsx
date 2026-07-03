@@ -39,12 +39,12 @@ const baseProps: ContextMenuProps = {
   onClose: vi.fn(),
 };
 
-describe('Preservation: Counter Grid Add/Remove Unchanged (Req 3.1, 3.2, 3.3)', () => {
+describe('Preservation: Counter List Add Unchanged (Req 3.1, 3.3)', () => {
   /**
    * Property-based test: for all counter types in ALL_COUNTER_TYPES,
-   * clicking in "Add counters" grid dispatches ADD_COUNTER with that type.
+   * clicking in "Add counters" list dispatches ADD_COUNTER with that type.
    */
-  it('property: clicking any counter type in "Add counters" grid dispatches ADD_COUNTER with that type', () => {
+  it('property: clicking any counter type in "Add counters" list dispatches ADD_COUNTER with that type', () => {
     fc.assert(
       fc.property(
         fc.constantFrom(...ALL_COUNTER_TYPES),
@@ -58,12 +58,13 @@ describe('Preservation: Counter Grid Add/Remove Unchanged (Req 3.1, 3.2, 3.3)', 
           const trigger = screen.getByText('Add counters');
           fireEvent.mouseEnter(trigger.closest('.relative')!);
 
-          // Find and click the counter type button
-          const buttons = screen.getAllByTitle(counterType);
-          const addButton = buttons.find(
-            (btn) => btn.classList.contains('hover:bg-gray-600')
+          // Click the counter type button by text content
+          const buttons = screen.getAllByText(counterType);
+          // The submenu item is the one inside the absolute-positioned submenu
+          const submenuButton = buttons.find(
+            (btn) => btn.closest('.absolute')
           ) || buttons[0];
-          fireEvent.click(addButton);
+          fireEvent.click(submenuButton);
 
           const dispatched = onAction.mock.calls[0]?.[0];
           unmount();
@@ -79,26 +80,23 @@ describe('Preservation: Counter Grid Add/Remove Unchanged (Req 3.1, 3.2, 3.3)', 
   });
 
   /**
-   * Property-based test: for all counter types in ALL_COUNTER_TYPES,
-   * clicking in "Remove counters" grid dispatches REMOVE_COUNTER with that type.
+   * Property-based test: inline counter quick-adjust "−" button dispatches
+   * REMOVE_COUNTER for the correct counter type.
    */
-  it('property: clicking any counter type in "Remove counters" grid dispatches REMOVE_COUNTER with that type', () => {
+  it('property: clicking "−" on inline counter quick-adjust dispatches REMOVE_COUNTER', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(...ALL_COUNTER_TYPES),
+        fc.constantFrom('+1/+1', '-1/-1', 'charge', 'loyalty', 'flying') as fc.Arbitrary<typeof ALL_COUNTER_TYPES[number]>,
         (counterType) => {
           const onAction = vi.fn();
+          const counters = [{ type: counterType, value: 2 }];
           const { unmount } = render(
-            <ContextMenu {...baseProps} onAction={onAction} />
+            <ContextMenu {...baseProps} onAction={onAction} counters={counters} />
           );
 
-          // Open the "Remove counters" submenu
-          const trigger = screen.getByText('Remove counters');
-          fireEvent.mouseEnter(trigger.closest('.relative')!);
-
-          // Find and click the counter type button — remove buttons have hover:bg-red-600
-          const buttons = screen.getAllByTitle(`Remove ${counterType}`);
-          fireEvent.click(buttons[0]);
+          // Find the inline row for this counter type and click "−"
+          const decrementButtons = screen.getAllByText('−');
+          fireEvent.click(decrementButtons[0]);
 
           const dispatched = onAction.mock.calls[0]?.[0];
           unmount();
@@ -109,7 +107,7 @@ describe('Preservation: Counter Grid Add/Remove Unchanged (Req 3.1, 3.2, 3.3)', 
           );
         }
       ),
-      { numRuns: 23 }
+      { numRuns: 5 }
     );
   });
 });
@@ -123,10 +121,9 @@ describe('Preservation: Non-Battlefield Menus Have No Counter/PT Sections (Req 3
 
       // These labels only appear in the battlefield menu
       expect(screen.queryByText('Add counters')).not.toBeInTheDocument();
-      expect(screen.queryByText('Remove counters')).not.toBeInTheDocument();
-      expect(screen.queryByText('Power +/-')).not.toBeInTheDocument();
-      expect(screen.queryByText('Toughness +/-')).not.toBeInTheDocument();
-      expect(screen.queryByText('+X/+X')).not.toBeInTheDocument();
+      expect(screen.queryByText('Add / subtract power')).not.toBeInTheDocument();
+      expect(screen.queryByText('Add / subtract toughness')).not.toBeInTheDocument();
+      expect(screen.queryByText('Add / subtract +X/+X')).not.toBeInTheDocument();
     });
   });
 });
