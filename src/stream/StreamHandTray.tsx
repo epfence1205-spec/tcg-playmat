@@ -55,6 +55,7 @@ export function StreamHandTray({ hand, revealedIds }: StreamHandTrayProps) {
                     transformOrigin: 'bottom center',
                     flexShrink: 0,
                     marginLeft: index === 0 ? 0 : '-2.5vh', // Same overlap as player view
+                    zIndex: index + 1,
                   }}
                 >
                   <img

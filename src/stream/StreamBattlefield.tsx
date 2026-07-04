@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import type { GameState, RowCard } from '../types';
 import { StreamCard } from './StreamCard';
-import { computeCompression } from '../creatureLayout';
+import { computeCompression, computeSortableWrapperWidthVh } from '../creatureLayout';
 
 export interface StreamBattlefieldProps {
   state: GameState;
@@ -39,6 +39,7 @@ export function StreamBattlefield({ state }: StreamBattlefieldProps) {
   return (
     <div
       className="relative w-full bg-green-900/80 overflow-hidden flex flex-col min-h-0"
+      style={{ height: '80vh' }}
       data-testid="stream-battlefield"
       aria-label="Battlefield"
     >
@@ -57,7 +58,7 @@ export function StreamBattlefield({ state }: StreamBattlefieldProps) {
 
         {hasPWOrBattles && (
           <div className="w-[100px] flex flex-col items-center gap-1 py-2 overflow-y-auto border-l border-green-700/30">
-            {pwBattleCards.filter(el => !el.isPhased).map((el) => (
+            {pwBattleCards.map((el) => (
               <StreamCard key={el.instanceId} rowCard={el} />
             ))}
           </div>
@@ -94,39 +95,46 @@ function StreamRowTrack({ elements }: { elements: RowCard[] }) {
     return () => observer.disconnect();
   }, []);
 
-  // Filter phased-out cards
-  const visible = elements.filter((rc) => !rc.isPhased);
-
-  // Calculate dynamic spacing — SAME as player view RowTrack
-  const elementsKey = visible.map(el => `${el.instanceId}:${el.isTapped}:${el.attachments.length}`).join(',');
+  // Calculate dynamic spacing — SAME as player view RowTrack (no phased filtering)
+  const elementsKey = elements.map(el => `${el.instanceId}:${el.isTapped}:${el.attachments.length}`).join(',');
   useEffect(() => {
-    if (visible.length <= 1 || containerWidth === 0) {
+    if (elements.length <= 1 || containerWidth === 0) {
       setNegativeMargin(0);
       return;
     }
     const availableWidth = containerWidth - 16; // minus px-2 padding
     const vhToPx = window.innerHeight / 100;
-    const margin = computeCompression(visible, availableWidth, vhToPx, 4);
+    const margin = computeCompression(elements, availableWidth, vhToPx, 4);
     setNegativeMargin(margin);
   }, [elementsKey, containerWidth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-visible"
+      className="flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out"
     >
-      {visible.map((el, idx) => {
-        const prev = idx > 0 ? visible[idx - 1] : null;
+      {elements.map((el, idx) => {
+        const prev = idx > 0 ? elements[idx - 1] : null;
         const sameAsPrev = prev && prev.card.name === el.card.name;
         const vh = window.innerHeight / 100;
         const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
         const dynamicOverlap = idx > 0 && negativeMargin > 0 ? negativeMargin : 0;
         const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+        const cardZIndex = idx + 1;
 
         return (
           <div
             key={el.instanceId}
-            style={idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+            style={{
+              width: `${computeSortableWrapperWidthVh(el.isTapped, el.attachments.length)}vh`,
+              height: '16vh',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: el.isTapped ? cardZIndex + 50 : cardZIndex,
+              ...(idx > 0 && totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
+            }}
           >
             <StreamCard rowCard={el} isCompressed={negativeMargin > 0} />
           </div>
@@ -182,44 +190,50 @@ function StreamSplitRowTrack({ left, right }: { left: RowCard[]; right: RowCard[
     return () => observer.disconnect();
   }, []);
 
-  // Filter phased
-  const visibleLeft = sortedLeft.filter(rc => !rc.isPhased);
-  const visibleRight = sortedRight.filter(rc => !rc.isPhased);
-
   useEffect(() => {
-    if (visibleLeft.length <= 1 || leftContainerWidth === 0) { setLeftMargin(0); return; }
+    if (sortedLeft.length <= 1 || leftContainerWidth === 0) { setLeftMargin(0); return; }
     const availableWidth = leftContainerWidth - 16;
     const vhToPx = window.innerHeight / 100;
-    const margin = computeCompression(visibleLeft, availableWidth, vhToPx, 4);
+    const margin = computeCompression(sortedLeft, availableWidth, vhToPx, 4);
     setLeftMargin(margin);
-  }, [visibleLeft, leftContainerWidth]);
+  }, [sortedLeft, leftContainerWidth]);
 
   useEffect(() => {
-    if (visibleRight.length <= 1 || rightContainerWidth === 0) { setRightMargin(0); return; }
+    if (sortedRight.length <= 1 || rightContainerWidth === 0) { setRightMargin(0); return; }
     const availableWidth = rightContainerWidth - 16;
     const vhToPx = window.innerHeight / 100;
-    const margin = computeCompression(visibleRight, availableWidth, vhToPx, 4);
+    const margin = computeCompression(sortedRight, availableWidth, vhToPx, 4);
     setRightMargin(margin);
-  }, [visibleRight, rightContainerWidth]);
+  }, [sortedRight, rightContainerWidth]);
 
   return (
     <div className="flex flex-row flex-1 min-h-0">
       {/* Left side — same className as player view */}
       <div
         ref={leftContainerRef}
-        className="flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-hidden"
+        className="flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out"
       >
-        {visibleLeft.map((el, idx) => {
-          const prev = idx > 0 ? visibleLeft[idx - 1] : null;
+        {sortedLeft.map((el, idx) => {
+          const prev = idx > 0 ? sortedLeft[idx - 1] : null;
           const sameAsPrev = prev && prev.card.name === el.card.name;
           const vh = window.innerHeight / 100;
           const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
           const dynamicOverlap = idx > 0 && leftMargin > 0 ? leftMargin : 0;
           const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+          const cardZIndex = idx + 1;
           return (
             <div
               key={el.instanceId}
-              style={totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : undefined}
+              style={{
+                width: `${computeSortableWrapperWidthVh(el.isTapped, el.attachments.length)}vh`,
+                height: '16vh',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: el.isTapped ? cardZIndex + 50 : cardZIndex,
+                ...(totalOverlap > 0 ? { marginLeft: `-${totalOverlap}px` } : {}),
+              }}
             >
               <StreamCard rowCard={el} isCompressed={leftMargin > 0} />
             </div>
@@ -230,19 +244,29 @@ function StreamSplitRowTrack({ left, right }: { left: RowCard[]; right: RowCard[
       {/* Right side — flex-row-reverse, same as player view */}
       <div
         ref={rightContainerRef}
-        className="flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-visible"
+        className="flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out"
       >
-        {visibleRight.map((el, idx) => {
-          const prev = idx > 0 ? visibleRight[idx - 1] : null;
+        {sortedRight.map((el, idx) => {
+          const prev = idx > 0 ? sortedRight[idx - 1] : null;
           const sameAsPrev = prev && prev.card.name === el.card.name;
           const vh = window.innerHeight / 100;
           const aggressiveOverlap = sameAsPrev ? 9 * vh : 0;
           const dynamicOverlap = idx > 0 && rightMargin > 0 ? rightMargin : 0;
           const totalOverlap = Math.max(aggressiveOverlap, dynamicOverlap);
+          const cardZIndex = idx + 1;
           return (
             <div
               key={el.instanceId}
-              style={totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : undefined}
+              style={{
+                width: `${computeSortableWrapperWidthVh(el.isTapped, el.attachments.length)}vh`,
+                height: '16vh',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: el.isTapped ? cardZIndex + 50 : cardZIndex,
+                ...(totalOverlap > 0 ? { marginRight: `-${totalOverlap}px` } : {}),
+              }}
             >
               <StreamCard rowCard={el} isCompressed={rightMargin > 0} />
             </div>

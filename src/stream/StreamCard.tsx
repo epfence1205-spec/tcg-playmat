@@ -107,6 +107,7 @@ export function StreamCard({ rowCard: creature, isCompressed = false }: StreamCa
         height: `${heightVh}vh`,
         transform: creature.isTapped ? 'rotate(90deg)' : undefined,
         transformOrigin: 'center center',
+        transition: 'transform 200ms ease',
       }}
     >
       {/* Equipment attachments — same as RotationDiv */}
@@ -159,7 +160,7 @@ export function StreamCard({ rowCard: creature, isCompressed = false }: StreamCa
             return (
               <>
                 {allKeywords.length > 0 && (
-                  <div className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center" style={{ maxWidth: '10vh' }}>
+                  <div className="absolute top-[20%] left-1/2 -translate-x-1/2 flex flex-wrap gap-[0.3vh] justify-center" style={{ maxWidth: '10vh', transform: creature.isTapped ? 'rotate(-90deg)' : undefined, transition: 'transform 200ms ease' }}>
                     {allKeywords.map((kw) => (
                       <span key={kw} className="bg-purple-900/80 text-purple-200 text-[0.9vh] font-bold px-[0.4vh] py-[0.1vh] rounded-sm shadow">{kw}</span>
                     ))}
