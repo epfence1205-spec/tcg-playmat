@@ -19,33 +19,29 @@ An advanced goldfishing tool (single-player playmat) with:
 
 ## Macro Milestones
 
-### Phase 1: Polished Single-Player Playmat ← YOU ARE HERE
+### Phase 1: Polished Single-Player Playmat ✅ COMPLETE
 
 **Goal:** A complete, bug-free goldfishing tool that handles all Commander board states gracefully.
 
-Key remaining work:
+Completed work:
 - [x] Battlefield sortable (drag-to-reorder within rows)
-- [ ] Token system improvements
-- [ ] Undo/redo system hardening
-- [ ] Performance optimization for large board states (20+ creatures)
-
 - [x] OBS Stream View (`/stream` route) — read-only view for OBS Virtual Camera (SpellTable feed)
-  - Renders full 100vw × 100vh (no crop line — OBS captures entire viewport)
-  - Hand cards (Zone C) rendered as face-down card backs with count badge
-  - HD Zoom Portal hidden (player-only tool, not visible to opponents)
-  - Mulligan UI hidden (private — opponents see empty board during mulligan)
-  - Syncs from localStorage/BroadcastChannel (same machine, no server)
-  - Hides UI chrome (modals, import buttons, context menus, keybind overlay)
-  - No interactivity (pointer-events: none, no hover states)
-  - Optional transparent background for OBS scene compositing
-  - Fixed resolution layout for consistent OBS capture
-  - Zone C retains spatial layout (hand position/count visible) but no card faces
+- [x] Deck import (Moxfield, Archidekt, CSV, plain text)
+- [x] Equipment docking with two-phase oracle classifier (static P/T + granted keywords)
+- [x] Counter system (counters + separate P/T modifiers)
+- [x] Mutate system
+- [x] Multi-select with lasso + batch operations
+- [x] Token panel
+- [x] DFC support, tap/untap, phase out, morph
+- [x] Hand management, mulligan engine, library browsing
+- [x] Keyboard shortcuts
+- [x] LocalStorage persistence
 
-**Exit criteria:** A single player can goldfish any commander deck without hitting bugs or missing interactions. The OBS stream view provides a clean virtual camera feed showing the full board with hand cards face-down, suitable for SpellTable.
+**Exit criteria:** ✅ A single player can goldfish any commander deck without hitting bugs or missing interactions. The OBS stream view provides a clean virtual camera feed.
 
 ---
 
-### Phase 2: Game Rules Engine
+### Phase 2: Game Rules Engine ← YOU ARE HERE
 
 **Goal:** Encode enough MTG rules to automate phase transitions, priority, and trigger ordering.
 
@@ -53,7 +49,17 @@ Key work:
 - [ ] Turn structure (untap → upkeep → draw → main → combat → main → end)
 - [ ] Phase transition automation with trigger detection
 - [ ] Stack/trigger analyzer for phase transitions
-- [ ] Advanced regex parsing for card text/abilities
+- [ ] Board-state-aware equipment calculator (7 formulas: Blackblade Reforged, Cranial Plating, Conqueror's Flail, Nettlecyst, Cranial Ram, Thran Power Suit, Hero's Blade)
+  - Board-state query layer: count artifacts/lands/colors/attachments from GameState
+  - Formula registry: map card names → counting functions
+  - calculateEffectiveStats gains optional GameState param for dynamic formulas
+  - Builds on the two-phase oracle classifier (oracleClassifier.ts) — VARIABLE_BONUS lines trigger formula lookup
+- [ ] ETB counter auto-placement (oracle text → auto-populate counters on battlefield entry)
+  - New classifier template: ENTERS_WITH_COUNTERS ("enters with X COUNTER_TYPE counter(s)")
+  - Level 1 (fixed count): "enters with two stun counters" → auto-add on createRowCard
+  - Level 2 (X-based): "enters with X +1/+1 counters" → prompt player for X value
+  - Level 3 (conditional): "enters with a counter for each..." → board-state dependent (same infra as equipment calc)
+  - Hook point: createRowCard in gameActions.ts, triggered on hand→battlefield transition
 - [ ] Stack representation (LIFO, priority passing)
 - [ ] Basic trigger ordering (ETB, LTB, attack, damage)
 - [ ] Mana pool tracking (optional — many playgroups track mentally)
@@ -101,6 +107,9 @@ Key work:
 **Goal:** Make it feel like a real product, not a dev tool.
 
 Key work:
+- [ ] Token system improvements (deferred from Phase 1)
+- [ ] Undo/redo system (deferred from Phase 1)
+- [ ] Performance optimization for large board states — 20+ creatures (deferred from Phase 1)
 - [ ] User accounts / profiles
 - [ ] Deck storage (cloud-synced)
 - [ ] Game history / replay
