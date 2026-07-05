@@ -1,4 +1,5 @@
 import type { KeywordAbility, RowCard, EffectiveStats, StatModifier } from './types';
+import { computeEquipmentBonus } from './oracleClassifier';
 
 /**
  * Regex patterns for detecting keyword abilities in oracle text.
@@ -39,13 +40,6 @@ export function parseKeywords(oracleText: string): KeywordAbility[] {
 }
 
 /**
- * Regex for extracting stat modifiers from equipment/aura oracle text.
- * Matches patterns like "gets +2/+2" or "has -1/-1".
- * Uses the global and case-insensitive flags for matchAll usage.
- */
-export const STAT_MODIFIER_PATTERN = /(?:gets?|has|have)\s+([+-]\d+)\/([+-]\d+)/gi;
-
-/**
  * Parses power and toughness from a creature's type line or basePower/baseToughness fields.
  * Handles formats like "Creature — Human Wizard 3/4" or standalone "3/4".
  * Returns [0, 0] for non-numeric or missing stats (e.g., "*" power).
@@ -75,7 +69,9 @@ export function parseCreatureStats(
 
 /**
  * Calculates effective stats for a creature considering all attached equipment/auras.
- * Parses each attachment's oracle text for stat modifier patterns and sums them.
+ * Uses the two-phase oracle classifier: classifies each line of oracle text,
+ * then extracts stat bonuses only from STATIC_BONUS lines.
+ * Variable, triggered, and token effects correctly return 0.
  */
 export function calculateEffectiveStats(
   creature: RowCard,
@@ -89,16 +85,9 @@ export function calculateEffectiveStats(
   const modifiers: StatModifier[] = [];
 
   for (const equip of attachments) {
-    // Reset lastIndex for global regex before matchAll
-    const matches = [...equip.card.oracleText.matchAll(STAT_MODIFIER_PATTERN)];
-    let power = 0;
-    let toughness = 0;
-    for (const match of matches) {
-      power += parseInt(match[1], 10);
-      toughness += parseInt(match[2], 10);
-    }
-    if (power !== 0 || toughness !== 0) {
-      modifiers.push({ power, toughness, source: equip.card.id });
+    const bonus = computeEquipmentBonus(equip.card.oracleText);
+    if (bonus.power !== 0 || bonus.toughness !== 0) {
+      modifiers.push({ power: bonus.power, toughness: bonus.toughness, source: equip.card.id });
     }
   }
 

@@ -3,6 +3,7 @@ import type { RowCard, KeywordAbility } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
 import { calculateEffectiveStats, parseKeywords } from '../keywords';
+import { computeGrantedKeywords } from '../oracleClassifier';
 import { CARD_BACK_URL } from '../cardBack';
 import { createRowCard } from '../gameActions';
 import { aggregateMutateKeywords } from '../mutateActions';
@@ -40,19 +41,19 @@ export function RotationDiv({
     for (const kw of aggregateMutateKeywords(creature)) {
       grantedKeywords.push(kw);
     }
-    // Also include equipment-granted keywords not already covered
+    // Also include equipment-granted keywords (uses two-phase classifier)
     for (const att of creature.attachments) {
-      const kws = parseKeywords(att.card.oracleText);
+      const kws = computeGrantedKeywords(att.card.oracleText);
       for (const kw of kws) {
-        if (!grantedKeywords.includes(kw)) grantedKeywords.push(kw);
+        if (!grantedKeywords.includes(kw as KeywordAbility)) grantedKeywords.push(kw as KeywordAbility);
       }
     }
   } else {
-    // Non-mutated creature: only equipment-granted keywords
+    // Non-mutated creature: only equipment-granted keywords (uses two-phase classifier)
     for (const att of creature.attachments) {
-      const kws = parseKeywords(att.card.oracleText);
+      const kws = computeGrantedKeywords(att.card.oracleText);
       for (const kw of kws) {
-        if (!grantedKeywords.includes(kw)) grantedKeywords.push(kw);
+        if (!grantedKeywords.includes(kw as KeywordAbility)) grantedKeywords.push(kw as KeywordAbility);
       }
     }
   }

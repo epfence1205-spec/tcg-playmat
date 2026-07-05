@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   KEYWORD_PATTERNS,
   parseKeywords,
-  STAT_MODIFIER_PATTERN,
   parseCreatureStats,
   calculateEffectiveStats,
 } from './keywords';
@@ -64,46 +63,6 @@ describe('parseKeywords', () => {
     const result = parseKeywords('flashback, overreach');
     expect(result).not.toContain('flash');
     expect(result).not.toContain('reach');
-  });
-});
-
-describe('STAT_MODIFIER_PATTERN', () => {
-  it('matches "gets +2/+2" pattern', () => {
-    const text = 'Equipped creature gets +2/+2.';
-    const matches = [...text.matchAll(STAT_MODIFIER_PATTERN)];
-    expect(matches).toHaveLength(1);
-    expect(matches[0][1]).toBe('+2');
-    expect(matches[0][2]).toBe('+2');
-  });
-
-  it('matches "get +1/+0" pattern', () => {
-    const text = 'Creatures you control get +1/+0.';
-    const matches = [...text.matchAll(STAT_MODIFIER_PATTERN)];
-    expect(matches).toHaveLength(1);
-    expect(matches[0][1]).toBe('+1');
-    expect(matches[0][2]).toBe('+0');
-  });
-
-  it('matches negative modifiers', () => {
-    const text = 'Target creature gets -2/-2 until end of turn.';
-    const matches = [...text.matchAll(STAT_MODIFIER_PATTERN)];
-    expect(matches).toHaveLength(1);
-    expect(matches[0][1]).toBe('-2');
-    expect(matches[0][2]).toBe('-2');
-  });
-
-  it('matches "has +1/+1" pattern', () => {
-    const text = 'Equipped creature has +1/+1.';
-    const matches = [...text.matchAll(STAT_MODIFIER_PATTERN)];
-    expect(matches).toHaveLength(1);
-    expect(matches[0][1]).toBe('+1');
-    expect(matches[0][2]).toBe('+1');
-  });
-
-  it('matches multiple modifiers in one text', () => {
-    const text = 'Equipped creature gets +1/+1 and gets +2/+0.';
-    const matches = [...text.matchAll(STAT_MODIFIER_PATTERN)];
-    expect(matches).toHaveLength(2);
   });
 });
 
