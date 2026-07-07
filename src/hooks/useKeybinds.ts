@@ -228,20 +228,23 @@ export function useKeybinds({
           return;
         case 'f':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'FLIP_CARD', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'FLIP_CARD', cardId: targetId });
           }
           return;
         case 'm':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'MORPH_CARD', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'MORPH_CARD', cardId: targetId });
           }
           return;
         case 'p':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'PHASE_CARD', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'PHASE_CARD', cardId: targetId });
           }
           return;
         case 'c':
@@ -253,29 +256,33 @@ export function useKeybinds({
         case '+':
         case '=':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'ADD_COUNTER', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'ADD_COUNTER', cardId: targetId });
           }
           return;
         case '-':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'REMOVE_COUNTER', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'REMOVE_COUNTER', cardId: targetId });
           }
           return;
         case 'delete':
         case 'backspace':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'DELETE_CARD', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'DELETE_CARD', cardId: targetId });
           }
           return;
 
         // ─── Spacebar (Reveal Toggle) ───────────────────────────────────
         case ' ':
           e.preventDefault();
-          if (hoveredCardId) {
-            dispatchCardAction({ type: 'TOGGLE_REVEAL', cardId: hoveredCardId });
+          {
+            const targetId = hoveredCardId ?? selectedCardIds[0];
+            if (targetId) dispatchCardAction({ type: 'TOGGLE_REVEAL', cardId: targetId });
           }
           return;
       }

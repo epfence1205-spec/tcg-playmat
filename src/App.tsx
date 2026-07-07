@@ -595,14 +595,37 @@ function AppContent() {
     })
   }
 
-  /** Handles context menu action dispatch */
+  /** Handles context menu action dispatch — multi-select aware */
   const handleContextMenuAction = useCallback((action: ContextMenuAction) => {
     const cardId = contextMenu.cardId
     const cardZone = contextMenu.cardZone
 
+    // Actions that should propagate to all selected cards
+    const MULTI_SELECT_ACTIONS = new Set([
+      'TAP', 'PHASE', 'ADD_COUNTER', 'REMOVE_COUNTER', 'ADD_POWER', 'ADD_TOUGHNESS',
+      'RESET_PT', 'RESET_POWER', 'RESET_TOUGHNESS', 'ADD_PT_COMBINED', 'REMOVE_ALL_COUNTERS',
+      'DELETE', 'MOVE_TO', 'FLIP', 'TRANSFORM', 'MORPH',
+    ]);
+
+    // Determine target card IDs — if right-clicked card is in selection, apply to all selected
+    const targetIds: string[] = (selectedCardIds.has(cardId) && selectedCardIds.size > 1 && MULTI_SELECT_ACTIONS.has(action.type))
+      ? Array.from(selectedCardIds)
+      : [cardId];
+
+    // Helper to apply an action to each target card
+    const forEachTarget = (fn: (prev: GameState, id: string) => GameState) => {
+      setGameState((prev: GameState) => {
+        let state = prev;
+        for (const id of targetIds) {
+          state = fn(state, id);
+        }
+        return state;
+      });
+    };
+
     switch (action.type) {
       case 'TAP':
-        setGameState((prev: GameState) => tapCard(prev, cardId))
+        forEachTarget((prev, id) => tapCard(prev, id))
         break
       case 'MOVE_TO': {
         const dest = action.destination
@@ -673,50 +696,48 @@ function AppContent() {
         setGameState((prev: GameState) => flipCard(prev, cardId, cardZone))
         break
       case 'PHASE':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({ ...rc, isPhased: !rc.isPhased })))
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({ ...rc, isPhased: !rc.isPhased })))
         break
       case 'ADD_COUNTER':
-        setGameState((prev: GameState) => addCounter(prev, cardId, action.counterType))
+        forEachTarget((prev, id) => addCounter(prev, id, action.counterType))
         break
       case 'REMOVE_COUNTER':
-        setGameState((prev: GameState) => removeCounter(prev, cardId, action.counterType))
+        forEachTarget((prev, id) => removeCounter(prev, id, action.counterType))
         break
       case 'ADD_POWER':
-        // Temporary power modifier (not a counter)
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc, powerModifier: (rc.powerModifier ?? 0) + action.amount
         })))
         break
       case 'ADD_TOUGHNESS':
-        // Temporary toughness modifier (not a counter)
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc, toughnessModifier: (rc.toughnessModifier ?? 0) + action.amount
         })))
         break
       case 'RESET_PT':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc, powerModifier: 0, toughnessModifier: 0
         })))
         break
       case 'RESET_POWER':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc, powerModifier: 0
         })))
         break
       case 'RESET_TOUGHNESS':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc, toughnessModifier: 0
         })))
         break
       case 'ADD_PT_COMBINED':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc,
           powerModifier: (rc.powerModifier ?? 0) + action.amount,
           toughnessModifier: (rc.toughnessModifier ?? 0) + action.amount
         })))
         break
       case 'REMOVE_ALL_COUNTERS':
-        setGameState((prev: GameState) => updateBattlefieldCard(prev, cardId, rc => ({
+        forEachTarget((prev, id) => updateBattlefieldCard(prev, id, rc => ({
           ...rc,
           counters: rc.counters.filter(c => c.type !== action.counterType)
         })))
@@ -743,9 +764,9 @@ function AppContent() {
         break
       }
       case 'DELETE':
-        setGameState((prev: GameState) => {
+        forEachTarget((prev, id) => {
           try {
-            const { newState } = removeCardFromZone(prev, cardZone, cardId)
+            const { newState } = removeCardFromZone(prev, cardZone, id)
             return newState
           } catch { return prev }
         })
@@ -863,7 +884,7 @@ function AppContent() {
         setGameState((prev: GameState) => shuffleLibrary(prev))
         break
     }
-  }, [contextMenu.cardId, contextMenu.cardZone, setGameState, gameState, addToast, splitMutateStack])
+  }, [contextMenu.cardId, contextMenu.cardZone, selectedCardIds, setGameState, gameState, addToast, splitMutateStack])
 
   const handleContextMenuClose = useCallback(() => {
     setContextMenu(prev => ({ ...prev, isOpen: false }))
