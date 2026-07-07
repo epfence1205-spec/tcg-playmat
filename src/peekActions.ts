@@ -39,7 +39,7 @@ export interface PeekResult {
  * - topCards → prepended to library (index 0 = new top)
  * - bottomCards → appended to library end
  * - handCards → appended to hand array
- * - graveyardCards → prepended to graveyard array
+ * - graveyardCards → appended to graveyard array (top of graveyard = last element)
  */
 export function applyPeekResult(state: GameState, result: PeekResult): GameState {
   const peekedIds = new Set(result.originalCardIds);
@@ -51,6 +51,6 @@ export function applyPeekResult(state: GameState, result: PeekResult): GameState
     ...state,
     library: [...result.topCards, ...remainingLibrary, ...result.bottomCards],
     hand: [...state.hand, ...result.handCards],
-    graveyard: [...result.graveyardCards, ...state.graveyard],
+    graveyard: [...state.graveyard, ...result.graveyardCards],
   };
 }

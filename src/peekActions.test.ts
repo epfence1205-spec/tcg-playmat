@@ -96,7 +96,7 @@ describe('applyPeekResult', () => {
     expect(next.library.map(c => c.id)).toEqual(['c1', 'r1', 'c3', 'c2']);
   });
 
-  it('surveil: graveyardCards prepended to graveyard', () => {
+  it('surveil: graveyardCards appended to top of graveyard', () => {
     const c1 = makeCard('c1');
     const c2 = makeCard('c2');
     const existingGY = makeCard('gy1');
@@ -116,7 +116,8 @@ describe('applyPeekResult', () => {
 
     const next = applyPeekResult(state, result);
     expect(next.library.map(c => c.id)).toEqual(['c1']);
-    expect(next.graveyard.map(c => c.id)).toEqual(['c2', 'gy1']);
+    // c2 goes to top of graveyard (end of array), existing gy1 stays below
+    expect(next.graveyard.map(c => c.id)).toEqual(['gy1', 'c2']);
   });
 
   it('select: handCards appended to hand, bottomCards at end of library', () => {
