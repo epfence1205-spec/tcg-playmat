@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import type { RowCard, KeywordAbility } from '../types';
 import { DraggableCard } from './DraggableCard';
 import { computeOuterDivWidthVh, computeOuterDivHeightVh, computeZIndex } from '../creatureLayout';
-import { calculateEffectiveStats, parseKeywords } from '../keywords';
+import { calculateEffectiveStats } from '../keywords';
 import { computeGrantedKeywords } from '../oracleClassifier';
 import { CARD_BACK_URL } from '../cardBack';
 import { createRowCard } from '../gameActions';
