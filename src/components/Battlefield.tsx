@@ -252,7 +252,7 @@ export function Battlefield({
   return (
     <div
       ref={battlefieldRef}
-      className="relative w-full bg-green-900/80 overflow-hidden flex flex-col min-h-0"
+      className="relative w-full bg-gray-900 overflow-hidden flex flex-col min-h-0"
       style={{ height: '80vh' }}
       data-obs-zone="above"
       role="region"
@@ -451,7 +451,7 @@ function RowTrack({ rowId, elements, onTapCard, onEquipmentAction, collapsingIds
       ref={combinedRef}
       className={`
         flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
-        ${isOver ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+        ${isOver ? 'bg-blue-900/20 ring-1 ring-blue-400/40' : ''}
       `}
       data-testid={`row-track-${rowId}`}
       data-row-id={rowId}
@@ -637,7 +637,7 @@ function SplitRowTrack({
         ref={setLeftRef}
         className={`
           flex-1 flex flex-row items-center gap-1 px-2 min-h-0 overflow-hidden transition-all duration-300 ease-in-out
-          ${isOverLeft ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+          ${isOverLeft ? 'bg-blue-900/20 ring-1 ring-blue-400/40' : ''}
         `}
         data-testid={`row-track-${leftRowId}`}
         data-row-id={leftRowId}
@@ -697,7 +697,7 @@ function SplitRowTrack({
         ref={setRightRef}
         className={`
           flex-1 flex flex-row-reverse items-center gap-1 px-2 min-h-0 overflow-visible transition-all duration-300 ease-in-out
-          ${isOverRight ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+          ${isOverRight ? 'bg-blue-900/20 ring-1 ring-blue-400/40' : ''}
         `}
         data-testid={`row-track-${rightRowId}`}
         data-row-id={rightRowId}
@@ -781,7 +781,7 @@ function PWBattleColumn({ cards, onTapCard, onEquipmentAction }: PWBattleColumnP
         w-[100px] flex flex-col items-center gap-1 py-2 overflow-y-auto
         border-l border-green-700/30
         transition-all duration-300 ease-in-out
-        ${isOver ? 'bg-green-600/30 ring-1 ring-green-400/50' : ''}
+        ${isOver ? 'bg-blue-900/20 ring-1 ring-blue-400/40' : ''}
       `}
       data-testid="pw-battle-column"
       data-row-id="pw-battle-column"

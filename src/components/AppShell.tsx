@@ -102,7 +102,7 @@ export function AppShell({ children, overlay, onDragStart, onDragOver, onDragEnd
         </div>
 
         {/* Zone C: Full-width bottom section for HandTray */}
-        <div className="overflow-hidden w-full h-full">
+        <div className="overflow-hidden w-full h-full relative z-[80]">
           {Array.isArray(children) ? children[2] : null}
         </div>
       </div>
